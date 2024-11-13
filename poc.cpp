@@ -42,11 +42,23 @@ static void opt(cs & cs, hai::fn<bool, ::cs &> fn) {
 
 // TBDs
 static bool c_byte_order_mark(cs & cs) { return false; }
-static bool l_any_document(cs & cs) { return false; }
+static bool l_bare_document(cs & cs) { return false; }
 static bool l_comment(cs & cs) { return false; }
+static bool l_directive(cs & cs) { return false; }
 static bool l_document_prefix(cs & cs) { return false; }
 static bool l_document_suffix(cs & cs) { return false; }
 static bool l_explicit_document(cs & cs) { return false; }
+
+static bool l_directive_document(cs & cs) {
+  if (!plus(cs, l_directive)) return false;
+  return l_explicit_document(cs);
+}
+
+static bool l_any_document(cs & cs) {
+  return l_directive_document(cs)
+    || l_explicit_document(cs)
+    || l_bare_document(cs);
+}
 
 static ast::stream l_yaml_stream(cs & cs) {
   ast::stream res {};
