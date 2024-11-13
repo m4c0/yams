@@ -15,6 +15,13 @@ public:
     return m_str.data()[m_idx++];
   }
   constexpr char peek() const { return m_str.data()[m_idx]; }
+
+  bool backtrack(hai::fn<bool, cs &> fn) {
+    auto i = m_idx;
+    if (fn(*this)) return true;
+    m_idx = i;
+    return false;
+  }
 };
 
 namespace ast {
@@ -40,14 +47,37 @@ static void opt(cs & cs, hai::fn<bool, ::cs &> fn) {
 
 // Trying to implement this as close as possible to the YAML specs
 
+enum k {
+  block_in,
+};
+
 // TBDs
 static bool c_byte_order_mark(cs & cs) { return false; }
-static bool l_bare_document(cs & cs) { return false; }
+static bool c_directives_end(cs & cs) { return false; }
+static bool e_node(cs & cs) { return false; }
 static bool l_comment(cs & cs) { return false; }
 static bool l_directive(cs & cs) { return false; }
 static bool l_document_prefix(cs & cs) { return false; }
 static bool l_document_suffix(cs & cs) { return false; }
-static bool l_explicit_document(cs & cs) { return false; }
+static bool s_l_block_node(cs & cs, int indent, k) { return false; }
+static bool s_l_comments(cs & cs) { return false; }
+
+static bool l_bare_document(cs & cs) {
+  return s_l_block_node(cs, -1, k::block_in);
+}
+
+static bool l_explicit_document(cs & cs) {
+  return cs.backtrack([](auto & cs) {
+    if (!c_directives_end(cs)) return false;
+    return group(cs, [](auto & cs) {
+      return l_bare_document(cs)
+          || cs.backtrack([](auto & cs) {
+              return e_node(cs)
+                  && s_l_comments(cs);
+          });
+    });
+  });
+}
 
 static bool l_directive_document(cs & cs) {
   if (!plus(cs, l_directive)) return false;
