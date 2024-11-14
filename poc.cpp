@@ -16,7 +16,13 @@ public:
   }
   constexpr char peek() const { return m_str.data()[m_idx]; }
 
-  bool backtrack(hai::fn<bool, cs &> fn) {
+  constexpr bool match(char c) {
+    if (peek() != c) return false;
+    take();
+    return true;
+  }
+
+  constexpr bool backtrack(hai::fn<bool, cs &> fn) {
     auto i = m_idx;
     if (fn(*this)) return true;
     m_idx = i;
@@ -57,6 +63,7 @@ enum class context {
 };
 
 // TBDs
+static bool start_of_line(cs & cs) { return false; }
 static bool c_byte_order_mark(cs & cs) { return false; }
 static bool c_directives_end(cs & cs) { return false; }
 static bool e_node(cs & cs) { return false; }
@@ -65,9 +72,40 @@ static bool l_directive(cs & cs) { return false; }
 static bool l_document_prefix(cs & cs) { return false; }
 static bool l_document_suffix(cs & cs) { return false; }
 static bool ns_flow_node(cs & cs, int, context) { return false; }
+static bool s_flow_line_prefix(cs & cs, int indent) { return false; }
 static bool s_lp_block_in_block(cs & cs, int, context) { return false; }
 static bool s_l_comments(cs & cs) { return false; }
-static bool s_separate(cs & cs, int, context) { return false; }
+
+static bool s_space(cs & cs) { return cs.match(0x20); }
+static bool s_tab(cs & cs) { return cs.match(0x09); }
+static bool s_white(cs & cs) { return s_space(cs) || s_tab(cs); }
+
+static bool s_separate_in_line(cs & cs) {
+  return plus(cs, s_white)
+      || start_of_line(cs);
+}
+
+static bool s_separate_lines(cs & cs, int indent) { 
+  return cs.backtrack([&](auto cs) {
+        return s_l_comments(cs)
+            && s_flow_line_prefix(cs, indent);
+      })
+      || s_separate_in_line(cs);
+}
+
+static bool s_separate(cs & cs, int indent, context k) {
+  switch (k) {
+    case context::block_out:
+    case context::block_in:
+    case context::flow_out:
+    case context::flow_in:
+      return s_separate_lines(cs, indent);
+
+    case context::block_key:
+    case context::flow_key:
+      return s_separate_in_line(cs);
+  }
+}
 
 static bool s_lp_flow_in_block(cs & cs, int indent) {
   return cs.backtrack([=](auto & cs) {
