@@ -22,6 +22,10 @@ public:
     return true;
   }
 
+  constexpr char last_char() const {
+    return m_idx > 0 ? m_str.data()[m_idx - 1] : 0;
+  }
+
   constexpr bool backtrack(hai::fn<bool, cs &> fn) {
     auto i = m_idx;
     if (fn(*this)) return true;
@@ -63,7 +67,6 @@ enum class context {
 };
 
 // TBDs
-static bool start_of_line(cs & cs) { return false; }
 static bool c_byte_order_mark(cs & cs) { return false; }
 static bool c_directives_end(cs & cs) { return false; }
 static bool e_node(cs & cs) { return false; }
@@ -75,6 +78,14 @@ static bool ns_flow_node(cs & cs, int, context) { return false; }
 static bool s_flow_line_prefix(cs & cs, int indent) { return false; }
 static bool s_lp_block_in_block(cs & cs, int, context) { return false; }
 static bool s_l_comments(cs & cs) { return false; }
+
+static bool start_of_line(cs & cs) {
+  // Kinda annoying how YAML spec define this as:
+  // <start-of-line>, which matches the empty string at the beginning of a line
+  // So far, this is my interpretation: match a CR, a LF or the beginning of the file
+  auto c = cs.last_char();
+  return c == 0x10 || c == 0x13 || c == 0x0;
+}
 
 static bool s_space(cs & cs) { return cs.match(0x20); }
 static bool s_tab(cs & cs) { return cs.match(0x09); }
