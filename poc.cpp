@@ -11,10 +11,11 @@ public:
   explicit cs(const hai::cstr & str) : m_str { str } {}
 
   constexpr char take() {
-    if (m_idx == m_str.size()) return 0;
-    return m_str.data()[m_idx++];
+    return m_idx >= m_str.size() ? 0 : m_str.data()[m_idx++]; 
   }
-  constexpr char peek() const { return m_str.data()[m_idx]; }
+  constexpr char peek() const { 
+    return m_idx >= m_str.size() ? 0 : m_str.data()[m_idx]; 
+  }
 
   constexpr bool match(char c) {
     if (peek() != c) return false;
@@ -38,8 +39,9 @@ namespace ast {
 class stream {};
 }
 
-static void star(cs & cs, hai::fn<bool, ::cs &> fn) {
+static bool star(cs & cs, hai::fn<bool, ::cs &> fn) {
   while (fn(cs)) {}
+  return true;
 }
 [[nodiscard]] static bool plus(cs & cs, hai::fn<bool, ::cs &> fn) {
   if (!fn(cs)) return false;
@@ -47,8 +49,9 @@ static void star(cs & cs, hai::fn<bool, ::cs &> fn) {
   return true;
 }
 // Just for documenting the optionality
-static void opt(cs & cs, hai::fn<bool, ::cs &> fn) {
+static bool opt(cs & cs, hai::fn<bool, ::cs &> fn) {
   fn(cs);
+  return true;
 }
 // Documents the grouping, makes return mandatory and avoids uncalled lambdas
 [[nodiscard]] static bool group(cs & cs, hai::fn<bool, ::cs &> fn) {
@@ -67,18 +70,19 @@ enum class context {
 };
 
 // TBDs
+static bool b_char(cs & cs) { return false; }
 static bool c_byte_order_mark(cs & cs) { return false; }
 static bool c_directives_end(cs & cs) { return false; }
+static bool c_printable(cs & cs) { return false; }
 static bool e_node(cs & cs) { return false; }
-static bool l_comment(cs & cs) { return false; }
 static bool l_directive(cs & cs) { return false; }
 static bool l_document_prefix(cs & cs) { return false; }
 static bool l_document_suffix(cs & cs) { return false; }
 static bool ns_flow_node(cs & cs, int, context) { return false; }
 static bool s_flow_line_prefix(cs & cs, int indent) { return false; }
 static bool s_lp_block_in_block(cs & cs, int, context) { return false; }
-static bool s_l_comments(cs & cs) { return false; }
 
+static bool end_of_input(cs & cs) { return cs.peek() == 0; }
 static bool start_of_line(cs & cs) {
   // Kinda annoying how YAML spec define this as:
   // <start-of-line>, which matches the empty string at the beginning of a line
@@ -94,6 +98,62 @@ static bool s_white(cs & cs) { return s_space(cs) || s_tab(cs); }
 static bool s_separate_in_line(cs & cs) {
   return plus(cs, s_white)
       || start_of_line(cs);
+}
+
+static bool b_line_feed(cs & cs) { return cs.match(0x0A); }
+static bool b_carriage_return(cs & cs) { return cs.match(0x0D); }
+static bool b_break(cs & cs) { 
+  return cs.backtrack([](auto & cs) {
+        return b_carriage_return(cs)
+            && b_line_feed(cs);
+      })
+      || b_carriage_return(cs)
+      || b_line_feed(cs);
+}
+
+static bool b_non_content(cs & cs) { return b_break(cs); }
+
+static bool nb_char(cs & cs) {
+  // c-printable - b-char - c-byte-order-mark
+  if (!cs.backtrack(c_printable)) return false;
+  if (cs.backtrack(b_char)) return false;
+  if (cs.backtrack(c_byte_order_mark)) return false;
+  cs.take();
+  return true;
+}
+
+static bool c_comment(cs & cs) { return cs.match('#'); }
+static bool c_nb_comment_text(cs & cs) {
+  return c_comment(cs)
+      && star(cs, nb_char);
+}
+
+static bool b_comment(cs & cs) {
+  return b_non_content(cs)
+      || end_of_input(cs);
+}
+static bool s_b_comment(cs & cs) {
+  opt(cs, [](auto & cs) {
+    return s_separate_in_line(cs)
+        && opt(cs, c_nb_comment_text);
+  });
+  return b_comment(cs);
+}
+
+static bool l_comment(cs & cs) {
+  return cs.backtrack([](auto & cs) {
+    return s_separate_in_line(cs)
+        && opt(cs, c_nb_comment_text)
+        && b_comment(cs);
+  });
+}
+
+static bool s_l_comments(cs & cs) {
+  return group(cs, [](auto & cs) {
+        return s_b_comment(cs)
+            || start_of_line(cs);
+      })
+      && star(cs, l_comment);
 }
 
 static bool s_separate_lines(cs & cs, int indent) { 
