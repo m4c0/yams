@@ -73,14 +73,17 @@ enum class context {
 static bool b_char(cs & cs) { return false; }
 static bool c_byte_order_mark(cs & cs) { return false; }
 static bool c_directives_end(cs & cs) { return false; }
+static bool c_lp_folded(cs & cs, int indent) { return false; }
+static bool c_lp_literal(cs & cs, int indent) { return false; }
 static bool c_printable(cs & cs) { return false; }
+static bool c_ns_properties(cs & cs, int indent, context k) { return false; }
 static bool e_node(cs & cs) { return false; }
 static bool l_directive(cs & cs) { return false; }
 static bool l_document_prefix(cs & cs) { return false; }
 static bool l_document_suffix(cs & cs) { return false; }
 static bool ns_flow_node(cs & cs, int, context) { return false; }
 static bool s_flow_line_prefix(cs & cs, int indent) { return false; }
-static bool s_lp_block_in_block(cs & cs, int, context) { return false; }
+static bool s_lp_block_collection(cs & cs, int, context) { return false; }
 
 static bool end_of_input(cs & cs) { return cs.peek() == 0; }
 static bool start_of_line(cs & cs) {
@@ -176,6 +179,27 @@ static bool s_separate(cs & cs, int indent, context k) {
     case context::flow_key:
       return s_separate_in_line(cs);
   }
+}
+
+static bool s_lp_block_scalar(cs & cs, int indent, context k) {
+  return cs.backtrack([&](auto & cs) {
+    return s_separate(cs, indent + 1, k)
+        && opt(cs, [&](auto & cs) {
+          return cs.backtrack([&](auto & cs) {
+            return c_ns_properties(cs, indent + 1, k)
+                && s_separate(cs, indent + 1, k);
+          });
+        })
+        && group(cs, [&](auto & cs) {
+          return c_lp_literal(cs, indent)
+              || c_lp_folded(cs, indent);
+        });
+  });
+}
+
+static bool s_lp_block_in_block(cs & cs, int indent, context k) {
+  return s_lp_block_scalar(cs, indent, k)
+      || s_lp_block_collection(cs, indent, k);
 }
 
 static bool s_lp_flow_in_block(cs & cs, int indent) {
