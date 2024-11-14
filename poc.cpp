@@ -65,24 +65,24 @@ static bool l_directive(cs & cs) { return false; }
 static bool l_document_prefix(cs & cs) { return false; }
 static bool l_document_suffix(cs & cs) { return false; }
 static bool ns_flow_node(cs & cs, int, context) { return false; }
-static bool s_l_block_in_block(cs & cs, int, context) { return false; }
+static bool s_lp_block_in_block(cs & cs, int, context) { return false; }
 static bool s_l_comments(cs & cs) { return false; }
 static bool s_separate(cs & cs, int, context) { return false; }
 
-static bool s_l_flow_in_block(cs & cs, int indent) {
+static bool s_lp_flow_in_block(cs & cs, int indent) {
   return cs.backtrack([=](auto & cs) {
     return s_separate(cs, indent + 1, context::flow_out)
         && ns_flow_node(cs, indent + 1, context::flow_out)
         && s_l_comments(cs);
   });
 }
-static bool s_l_block_node(cs & cs, int indent, context k) {
-  return s_l_block_in_block(cs, indent, k)
-      || s_l_flow_in_block(cs, indent);
+static bool s_lp_block_node(cs & cs, int indent, context k) {
+  return s_lp_block_in_block(cs, indent, k)
+      || s_lp_flow_in_block(cs, indent);
 }
 
 static bool l_bare_document(cs & cs) {
-  return s_l_block_node(cs, -1, context::block_in);
+  return s_lp_block_node(cs, -1, context::block_in);
 }
 
 static bool l_explicit_document(cs & cs) {
