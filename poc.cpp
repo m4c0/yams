@@ -81,9 +81,9 @@ static bool e_node(cs & cs) { return false; }
 static bool l_directive(cs & cs) { return false; }
 static bool l_document_prefix(cs & cs) { return false; }
 static bool l_document_suffix(cs & cs) { return false; }
+static bool lp_block_mapping(cs & cs, int indent) { return false; }
 static bool ns_flow_node(cs & cs, int, context) { return false; }
 static bool s_flow_line_prefix(cs & cs, int indent) { return false; }
-static bool s_lp_block_collection(cs & cs, int, context) { return false; }
 
 static bool end_of_input(cs & cs) { return cs.peek() == 0; }
 static bool start_of_line(cs & cs) {
@@ -179,6 +179,31 @@ static bool s_separate(cs & cs, int indent, context k) {
     case context::flow_key:
       return s_separate_in_line(cs);
   }
+}
+
+static bool lp_block_sequence(cs & cs, int indent) {
+  return plus(cs, [&](auto & cs) -> bool {
+    throw 0;
+  });
+}
+
+static bool seq_space(cs & cs, int indent, context k) {
+  switch (k) {
+    case context::block_out: return lp_block_sequence(cs, indent + 1);
+    case context::block_in:  return lp_block_sequence(cs, indent);
+    default: return false;
+  }
+}
+static bool s_lp_block_collection(cs & cs, int indent, context k) {
+  return cs.backtrack([&](auto & cs) {
+    opt(cs, [&](auto & cs) {
+      return s_separate(cs, indent + 1, k)
+          && c_ns_properties(cs, indent + 1, k);
+    });
+    if (!s_l_comments(cs)) return false;
+    return seq_space(cs, indent, k)
+        || lp_block_mapping(cs, indent);
+  });
 }
 
 static bool s_lp_block_scalar(cs & cs, int indent, context k) {
