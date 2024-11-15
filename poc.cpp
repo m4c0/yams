@@ -41,23 +41,25 @@ class stream {};
 
 static cs * g_cs {};
 
+static bool bt(hai::fn<bool> fn) {
+  return g_cs->backtrack(fn);
+}
+
 static bool star(hai::fn<bool> fn) {
-  while (fn()) {}
+  while (bt(fn)) {}
   return true;
 }
 [[nodiscard]] static bool plus(hai::fn<bool> fn) {
-  if (!fn()) return false;
-  while (fn()) {}
+  if (!bt(fn)) return false;
+  while (bt(fn)) {}
   return true;
 }
-// Just for documenting the optionality
 static bool opt(hai::fn<bool> fn) {
-  fn();
+  bt(fn);
   return true;
 }
-// Documents the grouping, makes return mandatory and avoids uncalled lambdas
 [[nodiscard]] static bool group(hai::fn<bool> fn) {
-  return fn();
+  return bt(fn);
 }
 
 // Trying to implement this as close as possible to the YAML specs
