@@ -63,36 +63,40 @@ class parser {
     return fn_ptr { new range(s, v) };
   }
 
+  fn_ptr do_dict(const node & n) {
+    auto & [k, v] = *cast<j::dict>(n).begin();
+    if (*k == "(all)") {
+      for (auto & r : cast<j::array>(v)) do_cond(r);
+    } else if (*k == "(any)") {
+      for (auto & r : cast<j::array>(v)) do_cond(r);
+    } else if (*k == "(---)") {
+      for (auto & r : cast<j::array>(v)) do_cond(r);
+    } else if (*k == "(+++)") {
+      do_cond(v);
+    } else if (*k == "(***)") {
+      do_cond(v);
+    } else if (*k == "(\?\?\?)") {
+      do_cond(v);
+    } else if (*k == "(exclude)") {
+      do_cond(v);
+    } else if (*k == "(...)") {
+      // TODO: parse parameter name in `v`
+    } else {
+      silog::trace("eval", *k);
+      do_cond(m_rules[*k]);
+      // TODO: parse parameters in `v`
+    }
+    return {};
+  }
+
   fn_ptr do_cond(const node & n) {
     if (n->type() == jason::ast::string) {
       return do_string(n);
     } else if (n->type() == jason::ast::array) {
       return do_array(n);
     } else if (n->type() == jason::ast::dict) {
-      auto & [k, v] = *cast<j::dict>(n).begin();
-      if (*k == "(all)") {
-        for (auto & r : cast<j::array>(v)) do_cond(r);
-      } else if (*k == "(any)") {
-        for (auto & r : cast<j::array>(v)) do_cond(r);
-      } else if (*k == "(---)") {
-        for (auto & r : cast<j::array>(v)) do_cond(r);
-      } else if (*k == "(+++)") {
-        do_cond(v);
-      } else if (*k == "(***)") {
-        do_cond(v);
-      } else if (*k == "(\?\?\?)") {
-        do_cond(v);
-      } else if (*k == "(exclude)") {
-        do_cond(v);
-      } else if (*k == "(...)") {
-        // TODO: parse parameter name in `v`
-      } else {
-        silog::trace("eval", *k);
-        do_cond(m_rules[*k]);
-        // TODO: parse parameters in `v`
-      }
+      return do_dict(n);
     } else silog::die("unknown condition type: %d", n->type());
-    return {};
   }
 
 public:
