@@ -13,6 +13,12 @@ class fn {
 };
 using fn_ptr = hai::uptr<fn>;
 
+class wrap_fn : public fn {
+  fn_ptr m_fn;
+public:
+  constexpr explicit wrap_fn(fn_ptr fn) : m_fn { traits::move(fn) } {}
+};
+
 class arr_fn : public fn {
   hai::array<fn_ptr> m_fns;
 public:
@@ -30,6 +36,23 @@ public:
 class sub : public arr_fn {
 public:
   using arr_fn::arr_fn;
+};
+
+class plus : public wrap_fn {
+public:
+  using wrap_fn::wrap_fn;
+};
+class star : public wrap_fn {
+public:
+  using wrap_fn::wrap_fn;
+};
+class opt : public wrap_fn {
+public:
+  using wrap_fn::wrap_fn;
+};
+class excl : public wrap_fn {
+public:
+  using wrap_fn::wrap_fn;
 };
 
 class match : public fn {
@@ -90,21 +113,22 @@ class parser {
     for (auto & r : cast<j::array>(n)) fns.push_back(do_cond(r));
     return fn_ptr { new T { traits::move(fns) } };
   }
+  template<typename T>
+  fn_ptr do_wrap_fn(const node & n) {
+    auto fn = do_cond(n);
+    return fn_ptr { new T { traits::move(fn) } };
+  }
 
   fn_ptr do_dict(const node & n) {
     auto & [k, v] = *cast<j::dict>(n).begin();
     if      (*k == "(all)") return do_arr_fn<all>(v);
     else if (*k == "(any)") return do_arr_fn<any>(v);
     else if (*k == "(---)") return do_arr_fn<sub>(v);
-    else if (*k == "(+++)") {
-      do_cond(v);
-    } else if (*k == "(***)") {
-      do_cond(v);
-    } else if (*k == "(\?\?\?)") {
-      do_cond(v);
-    } else if (*k == "(exclude)") {
-      do_cond(v);
-    } else if (*k == "(...)") {
+    else if (*k == "(+++)") return do_wrap_fn<plus>(v);
+    else if (*k == "(***)") return do_wrap_fn<star>(v);
+    else if (*k == "(\?\?\?)") return do_wrap_fn<opt>(v);
+    else if (*k == "(exclude)") return do_wrap_fn<excl>(v);
+    else if (*k == "(...)") {
       // TODO: parse parameter name in `v`
     } else {
       silog::trace("eval", *k);
