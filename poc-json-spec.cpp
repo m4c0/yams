@@ -5,12 +5,32 @@ import jason;
 import jojo;
 import jute;
 import silog;
+import traits;
 
 namespace j = jason::ast::nodes;
 
 class fn {
 };
 using fn_ptr = hai::uptr<fn>;
+
+class arr_fn : public fn {
+  hai::array<fn_ptr> m_fns;
+public:
+  constexpr explicit arr_fn(hai::array<fn_ptr> fns) : m_fns { traits::move(fns) } {}
+};
+
+class all : public arr_fn {
+public:
+  using arr_fn::arr_fn;
+};
+class any : public arr_fn {
+public:
+  using arr_fn::arr_fn;
+};
+class sub : public arr_fn {
+public:
+  using arr_fn::arr_fn;
+};
 
 class match : public fn {
   jute::heap m_c;
@@ -23,6 +43,7 @@ class range : public fn {
 public:
   constexpr explicit range(jute::heap mn, jute::heap mx) : m_min { mn }, m_max { mx } {}
 };
+
 class start_of_line : public fn {};
 class end_of_stream : public fn {};
 class empty : public fn {};
@@ -63,15 +84,19 @@ class parser {
     return fn_ptr { new range(s, v) };
   }
 
+  template<typename T>
+  fn_ptr do_arr_fn(const node & n) {
+    hai::varray<fn_ptr> fns { 128 };
+    for (auto & r : cast<j::array>(n)) fns.push_back(do_cond(r));
+    return fn_ptr { new T { traits::move(fns) } };
+  }
+
   fn_ptr do_dict(const node & n) {
     auto & [k, v] = *cast<j::dict>(n).begin();
-    if (*k == "(all)") {
-      for (auto & r : cast<j::array>(v)) do_cond(r);
-    } else if (*k == "(any)") {
-      for (auto & r : cast<j::array>(v)) do_cond(r);
-    } else if (*k == "(---)") {
-      for (auto & r : cast<j::array>(v)) do_cond(r);
-    } else if (*k == "(+++)") {
+    if      (*k == "(all)") return do_arr_fn<all>(v);
+    else if (*k == "(any)") return do_arr_fn<any>(v);
+    else if (*k == "(---)") return do_arr_fn<sub>(v);
+    else if (*k == "(+++)") {
       do_cond(v);
     } else if (*k == "(***)") {
       do_cond(v);
