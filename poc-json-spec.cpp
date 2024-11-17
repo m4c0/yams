@@ -1,6 +1,7 @@
 #pragma leco tool
 
 import hai;
+import hashley;
 import jason;
 import jojo;
 import jute;
@@ -76,6 +77,7 @@ class parser {
 
   node m_json;
   const j::dict & m_rules;
+  hashley::niamh m_done { 113 };
 
   fn_ptr do_string(const node & n) {
     auto s = cast<j::string>(n).str();
@@ -88,7 +90,7 @@ class parser {
     } else if (*s == "<empty>") {
       return fn_ptr { new empty() };
     } else {
-      return do_cond(m_rules[*s]);
+      return do_rule(*s);
     }
   }
 
@@ -141,9 +143,10 @@ class parser {
     else if (*k == "({8})") return {}; // TODO
     else if (*k == "({n})") return {}; // TODO
     else if (*k == "(set)") return {}; // TODO
+    else if (*k == "(max)") return {}; // TODO
     else {
       silog::trace("eval", *k);
-      do_cond(m_rules[*k]);
+      do_rule(*k);
       // TODO: parse parameters in `v`
       return {};
     }
@@ -179,8 +182,12 @@ public:
     : m_json { jason::parse(src) }
     , m_rules { cast<j::dict>(m_json) } {}
 
-  void do_rule(jute::view key) {
-    do_cond(m_rules[key]);
+  fn_ptr do_rule(jute::view key) {
+    // TODO: cache the result
+    auto & k = m_done[key];
+    if (k) return {};
+    k = 1;
+    return do_cond(m_rules[key]);
   }
 };
 
