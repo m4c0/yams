@@ -119,8 +119,7 @@ class parser {
     return fn_ptr { new T { traits::move(fn) } };
   }
 
-  fn_ptr do_dict(const node & n) {
-    auto & [k, v] = *cast<j::dict>(n).begin();
+  fn_ptr do_pair(jute::heap k, const node & v) {
     if      (*k == "(all)") return do_arr_fn<all>(v);
     else if (*k == "(any)") return do_arr_fn<any>(v);
     else if (*k == "(---)") return do_arr_fn<sub>(v);
@@ -128,14 +127,41 @@ class parser {
     else if (*k == "(***)") return do_wrap_fn<star>(v);
     else if (*k == "(\?\?\?)") return do_wrap_fn<opt>(v);
     else if (*k == "(exclude)") return do_wrap_fn<excl>(v);
-    else if (*k == "(...)") {
-      // TODO: parse parameter name in `v`
-    } else {
+    else if (*k == "(case)") return {}; // TODO: TBD
+    else if (*k == "(<<<)") {
+      // TODO: check if parameter is non-zero???
+      do_cond(v);
+      return {};
+    }
+    else if (*k == "(!==)") return {}; // TODO
+    else if (*k == "(<=)") return {}; // TODO
+    else if (*k == "(<)") return {}; // TODO
+    else if (*k == "({2})") return {}; // TODO
+    else if (*k == "({4})") return {}; // TODO
+    else if (*k == "({8})") return {}; // TODO
+    else if (*k == "({n})") return {}; // TODO
+    else if (*k == "(set)") return {}; // TODO
+    else {
       silog::trace("eval", *k);
       do_cond(m_rules[*k]);
       // TODO: parse parameters in `v`
+      return {};
     }
-    return {};
+  }
+  fn_ptr do_dict(const node & n) {
+    auto it = cast<j::dict>(n).begin();
+    auto & [k, v] = *it;
+    if (*k == "(...)") {
+      // TODO: parse parameter name in `v`
+      auto & [kk, vv] = *++it;
+      return do_pair(kk, vv);
+    }
+    else if (*k == "(if)") {
+      // TODO: eval condition in 'v'
+      auto & [kk, vv] = *++it;
+      return do_pair(kk, vv);
+    }
+    else return do_pair(k, v);
   }
 
   fn_ptr do_cond(const node & n) {
