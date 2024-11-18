@@ -5,12 +5,17 @@ import hashley;
 import jason;
 import jojo;
 import jute;
+import print;
 import silog;
 import traits;
 
 namespace j = jason::ast::nodes;
 
 class fn {
+public:
+  virtual ~fn() {}
+  virtual void emit_interface() const {};
+  virtual void emit_body() const = 0;
 };
 using fn_ptr = hai::uptr<fn>;
 
@@ -29,48 +34,72 @@ public:
 class all : public arr_fn {
 public:
   using arr_fn::arr_fn;
+  void emit_body() const { putln("// TBD: all"); }
 };
 class any : public arr_fn {
 public:
   using arr_fn::arr_fn;
+  void emit_body() const { putln("// TBD: any"); }
 };
 class sub : public arr_fn {
 public:
   using arr_fn::arr_fn;
+  void emit_body() const { putln("// TBD: sub"); }
 };
 
 class plus : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
+  void emit_body() const { putln("// TBD: plus"); }
 };
 class star : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
+  void emit_body() const { putln("// TBD: star"); }
 };
 class opt : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
+  void emit_body() const { putln("// TBD: opt"); }
 };
 class excl : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
+  void emit_body() const { putln("// TBD: excl"); }
 };
 
 class match : public fn {
   jute::heap m_c;
 public:
   constexpr explicit match(jute::heap c) : m_c { c } {}
+  void emit_body() const { putln("// TBD: match"); }
 };
 class range : public fn {
   jute::heap m_min;
   jute::heap m_max;
 public:
   constexpr explicit range(jute::heap mn, jute::heap mx) : m_min { mn }, m_max { mx } {}
+  void emit_body() const { putln("// TBD: range"); }
 };
 
-class start_of_line : public fn {};
-class end_of_stream : public fn {};
-class empty : public fn {};
+struct start_of_line : public fn {
+  void emit_body() const { putln("// TBD: sol"); }
+};
+struct end_of_stream : public fn {
+  void emit_body() const { putln("// TBD: eos"); }
+};
+struct empty : public fn {
+  void emit_body() const { putln("// TBD: empty"); }
+};
+
+class rule : public wrap_fn {
+  jute::view m_name;
+public:
+  constexpr rule(jute::view n, fn_ptr fn) : wrap_fn { traits::move(fn) }, m_name { n } {}
+
+  void emit_interface() const { putln("// TBD: rule iface"); }
+  void emit_body() const { putln("// TBD: rule"); }
+};
 
 class parser {
   using node = jason::ast::node_ptr;
@@ -145,7 +174,6 @@ class parser {
     else if (*k == "(set)") return {}; // TODO
     else if (*k == "(max)") return {}; // TODO
     else {
-      silog::trace("eval", *k);
       do_rule(*k);
       // TODO: parse parameters in `v`
       return {};
@@ -187,13 +215,16 @@ public:
     auto & k = m_done[key];
     if (k) return {};
     k = 1;
-    return do_cond(m_rules[key]);
+    return fn_ptr { new rule(key, do_cond(m_rules[key])) };
   }
 };
 
 static void parse(void *, hai::array<char> & data) {
   parser p { jute::view { data.begin(), data.size() } };
-  p.do_rule("l-yaml-stream");
+  auto fn = p.do_rule("l-yaml-stream");
+  if (!fn) silog::die("something is not right");
+  fn->emit_interface();
+  fn->emit_body();
 }
 
 int main() {
