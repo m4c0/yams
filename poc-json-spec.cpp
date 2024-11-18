@@ -14,7 +14,7 @@ namespace j = jason::ast::nodes;
 class fn {
 public:
   virtual ~fn() {}
-  virtual void emit_interface() const {};
+  virtual void emit_interface() const = 0;
   virtual void emit_body() const = 0;
 };
 using fn_ptr = hai::uptr<fn>;
@@ -23,12 +23,16 @@ class wrap_fn : public fn {
   fn_ptr m_fn;
 public:
   constexpr explicit wrap_fn(fn_ptr fn) : m_fn { traits::move(fn) } {}
+  virtual void emit_interface() const { if (m_fn) m_fn->emit_interface(); }
 };
 
 class arr_fn : public fn {
   hai::array<fn_ptr> m_fns;
 public:
   constexpr explicit arr_fn(hai::array<fn_ptr> fns) : m_fns { traits::move(fns) } {}
+  virtual void emit_interface() const { 
+    for (auto & fn : m_fns) if (fn) fn->emit_interface(); 
+  }
 };
 
 class all : public arr_fn {
@@ -72,6 +76,7 @@ class match : public fn {
   jute::heap m_c;
 public:
   constexpr explicit match(jute::heap c) : m_c { c } {}
+  void emit_interface() const { putln("// TBD: match iface"); }
   void emit_body() const { putln("// TBD: match"); }
 };
 class range : public fn {
@@ -79,16 +84,20 @@ class range : public fn {
   jute::heap m_max;
 public:
   constexpr explicit range(jute::heap mn, jute::heap mx) : m_min { mn }, m_max { mx } {}
+  void emit_interface() const { putln("// TBD: range iface"); }
   void emit_body() const { putln("// TBD: range"); }
 };
 
 struct start_of_line : public fn {
+  void emit_interface() const { putln("// TBD: sol iface"); }
   void emit_body() const { putln("// TBD: sol"); }
 };
 struct end_of_stream : public fn {
+  void emit_interface() const { putln("// TBD: eos iface"); }
   void emit_body() const { putln("// TBD: eos"); }
 };
 struct empty : public fn {
+  void emit_interface() const { putln("// TBD: empty iface"); }
   void emit_body() const { putln("// TBD: empty"); }
 };
 
@@ -97,7 +106,6 @@ class rule : public wrap_fn {
 public:
   constexpr rule(jute::view n, fn_ptr fn) : wrap_fn { traits::move(fn) }, m_name { n } {}
 
-  void emit_interface() const { putln("// TBD: rule iface"); }
   void emit_body() const { putln("// TBD: rule"); }
 };
 
