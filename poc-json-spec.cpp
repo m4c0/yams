@@ -26,26 +26,24 @@ class wrap_fn : public fn {
   fn_ptr m_fn {};
 public:
   constexpr explicit wrap_fn(fn_ptr fn) : m_fn { traits::move(fn) } {}
-  virtual void emit_fwd_decl() const override { if (m_fn) m_fn->emit_fwd_decl(); }
-  virtual void emit_impl() const override { if (m_fn) m_fn->emit_impl(); }
-  virtual void emit_body() const override { if (m_fn) m_fn->emit_body(); }
+  virtual void emit_fwd_decl() const override { m_fn->emit_fwd_decl(); }
+  virtual void emit_impl() const override { m_fn->emit_impl(); }
+  virtual void emit_body() const override { m_fn->emit_body(); }
 };
 
 class arr_fn : public fn {
   hai::array<fn_ptr> m_fns;
 
 protected:
-  void for_each(auto && fn) const {
-    for (auto & f : m_fns) fn(f);
-  }
+  constexpr const auto & fns() const { return m_fns; }
 
 public:
   constexpr explicit arr_fn(hai::array<fn_ptr> fns) : m_fns { traits::move(fns) } {}
   virtual void emit_fwd_decl() const override { 
-    for (auto & fn : m_fns) if (fn) fn->emit_fwd_decl(); 
+    for (auto & fn : m_fns) fn->emit_fwd_decl(); 
   }
   virtual void emit_impl() const override { 
-    for (auto & fn : m_fns) if (fn) fn->emit_impl(); 
+    for (auto & fn : m_fns) fn->emit_impl(); 
   }
 };
 class term_fn : public fn {
@@ -59,11 +57,10 @@ public:
   using arr_fn::arr_fn;
   void emit_body() const override { 
     put("bt([] { return ");
-    for_each([](auto & fn) {
-      if (!fn) return;
+    for (auto & fn : fns()) {
       fn->emit_body();
       put("&&");
-    });
+    }
     put("true; })");
   }
 };
@@ -72,11 +69,10 @@ public:
   using arr_fn::arr_fn;
   void emit_body() const override { 
     put("(");
-    for_each([](auto & fn) {
-      if (!fn) return;
+    for (auto & fn : fns()) {
       fn->emit_body();
       put("||");
-    });
+    }
     put("false)");
   }
 };
@@ -89,7 +85,7 @@ public:
 class plus : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
-  void emit_body() const { put(""); }
+  void emit_body() const { put("plus"); }
 };
 class star : public wrap_fn {
 public:
@@ -98,12 +94,12 @@ public:
 class opt : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
-  void emit_body() const { put(""); }
+  void emit_body() const { put("opt"); }
 };
 class excl : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
-  void emit_body() const { put(""); }
+  void emit_body() const { put("excl"); }
 };
 
 class match : public term_fn {
@@ -153,6 +149,10 @@ struct empty : public term_fn {
   void emit_body() const { put("empty()"); }
 };
 
+struct tbd : public term_fn {
+  void emit_body() const { put("TBD"); }
+};
+
 class rule : public wrap_fn {
   jute::heap m_name;
 
@@ -173,7 +173,6 @@ public:
 
   void emit_body() const override {
     put(c_friendly_name(*m_name), "()");
-    wrap_fn::emit_body();
   }
 };
 
@@ -183,6 +182,8 @@ class parser {
   node m_json;
   const j::dict & m_rules;
   hashley::niamh m_done { 113 };
+
+  fn_ptr tbd() { return fn_ptr { new ::tbd {} }; }
 
   fn_ptr do_string(const node & n) {
     auto s = cast<j::string>(n).str();
@@ -216,8 +217,9 @@ class parser {
 
   template<typename T>
   fn_ptr do_arr_fn(const node & n) {
-    hai::varray<fn_ptr> fns { 128 };
-    for (auto & r : cast<j::array>(n)) fns.push_back(do_cond(r));
+    auto & arr = cast<j::array>(n);
+    hai::varray<fn_ptr> fns { arr.size() };
+    for (auto & r : arr) fns.push_back(do_cond(r));
     return fn_ptr { new T { traits::move(fns) } };
   }
   template<typename T>
@@ -234,25 +236,25 @@ class parser {
     else if (*k == "(***)") return do_wrap_fn<star>(v);
     else if (*k == "(\?\?\?)") return do_wrap_fn<opt>(v);
     else if (*k == "(exclude)") return do_wrap_fn<excl>(v);
-    else if (*k == "(case)") return {}; // TODO: TBD
+    else if (*k == "(case)") return tbd();
     else if (*k == "(<<<)") {
       // TODO: check if parameter is non-zero???
       do_cond(v);
-      return {};
+      return tbd();
     }
-    else if (*k == "(!==)") return {}; // TODO
-    else if (*k == "(<=)") return {}; // TODO
-    else if (*k == "(<)") return {}; // TODO
-    else if (*k == "({2})") return {}; // TODO
-    else if (*k == "({4})") return {}; // TODO
-    else if (*k == "({8})") return {}; // TODO
-    else if (*k == "({n})") return {}; // TODO
-    else if (*k == "(set)") return {}; // TODO
-    else if (*k == "(max)") return {}; // TODO
+    else if (*k == "(!==)") return tbd();
+    else if (*k == "(<=)") return tbd();
+    else if (*k == "(<)") return tbd();
+    else if (*k == "({2})") return tbd();
+    else if (*k == "({4})") return tbd();
+    else if (*k == "({8})") return tbd();
+    else if (*k == "({n})") return tbd();
+    else if (*k == "(set)") return tbd();
+    else if (*k == "(max)") return tbd();
     else {
       do_rule(*k);
       // TODO: parse parameters in `v`
-      return {};
+      return tbd();
     }
   }
   fn_ptr do_dict(const node & n) {
@@ -289,7 +291,7 @@ public:
   fn_ptr do_rule(jute::view key) {
     // TODO: cache the result
     auto & k = m_done[key];
-    if (k) return {};
+    if (k) return tbd();
     k = 1;
     return fn_ptr { new rule(key, do_cond(m_rules[key])) };
   }
