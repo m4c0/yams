@@ -104,12 +104,13 @@ public:
   void emit_body() const {
     if (m_c.size() == 0) silog::die("empty matcher");
     if (m_c.size() == 1) put("match('", m_c, "')");
+    else if (m_c.size() == 3) put("match(0", m_c, ")");
     else if ((*m_c)[0] == 'x' && (m_c.size() % 2) == 1) {
       auto v = (*m_c).subview(1).after;
       put("bt([] {");
       while (v.size()) {
         auto [n, r] = v.subview(2);
-        put("match('\\x", n, "')&&");
+        put("match(0x", n, ")&&");
         v = r;
       }
       put("true})");
@@ -120,19 +121,27 @@ public:
 class range : public term_fn {
   jute::heap m_min;
   jute::heap m_max;
+
+  static constexpr auto to_wc(jute::view c) {
+    // TODO: properly support wide-chars
+    if (c.size() < 3) silog::die("found range with single char");
+    return c.size() == 3 ? c : jute::view { "xFF" };
+  }
 public:
   constexpr explicit range(jute::heap mn, jute::heap mx) : m_min { mn }, m_max { mx } {}
-  void emit_body() const { putln(""); }
+  void emit_body() const {
+    put("range(0", to_wc(*m_min), ", 0", to_wc(*m_max), ")");
+  }
 };
 
 struct start_of_line : public term_fn {
-  void emit_body() const { putln(""); }
+  void emit_body() const { put("sol()"); }
 };
 struct end_of_stream : public term_fn {
-  void emit_body() const { putln(""); }
+  void emit_body() const { put("match(0)"); }
 };
 struct empty : public term_fn {
-  void emit_body() const { putln(""); }
+  void emit_body() const { put("empty()"); }
 };
 
 class rule : public wrap_fn {
