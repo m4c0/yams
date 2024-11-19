@@ -35,17 +35,10 @@ class arr_fn : public fn {
   hai::array<fn_ptr> m_fns;
 
 protected:
-  void emit_fns(jute::view op) const {
-    // bool first { true };
-    for (auto & fn : m_fns) {
-      if (!fn) continue;
-      // if (!first) put(op);
-      // put("(");
-      fn->emit_body();
-      // put(")");
-      // first = false;
-    }
+  void for_each(auto && fn) const {
+    for (auto & f : m_fns) fn(f);
   }
+
 public:
   constexpr explicit arr_fn(hai::array<fn_ptr> fns) : m_fns { traits::move(fns) } {}
   virtual void emit_fwd_decl() const override { 
@@ -64,23 +57,39 @@ public:
 class all : public arr_fn {
 public:
   using arr_fn::arr_fn;
-  void emit_body() const override { emit_fns("&&"); }
+  void emit_body() const override { 
+    put("bt([] { return ");
+    for_each([](auto & fn) {
+      if (!fn) return;
+      fn->emit_body();
+      put("&&");
+    });
+    put("true; })");
+  }
 };
 class any : public arr_fn {
 public:
   using arr_fn::arr_fn;
-  void emit_body() const { emit_fns("||"); }
+  void emit_body() const override { 
+    put("(");
+    for_each([](auto & fn) {
+      if (!fn) return;
+      fn->emit_body();
+      put("||");
+    });
+    put("false)");
+  }
 };
 class sub : public arr_fn {
 public:
   using arr_fn::arr_fn;
-  void emit_body() const { putln(""); }
+  void emit_body() const { put(""); }
 };
 
 class plus : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
-  void emit_body() const { putln(""); }
+  void emit_body() const { put(""); }
 };
 class star : public wrap_fn {
 public:
@@ -89,12 +98,12 @@ public:
 class opt : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
-  void emit_body() const { putln(""); }
+  void emit_body() const { put(""); }
 };
 class excl : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
-  void emit_body() const { putln(""); }
+  void emit_body() const { put(""); }
 };
 
 class match : public term_fn {
@@ -107,13 +116,13 @@ public:
     else if (m_c.size() == 3) put("match(0", m_c, ")");
     else if ((*m_c)[0] == 'x' && (m_c.size() % 2) == 1) {
       auto v = (*m_c).subview(1).after;
-      put("bt([] {");
+      put("bt([] { return ");
       while (v.size()) {
         auto [n, r] = v.subview(2);
         put("match(0x", n, ")&&");
         v = r;
       }
-      put("true})");
+      put("true; })");
     }
     else silog::die("invalid char matcher");
   }
@@ -157,9 +166,9 @@ public:
   void emit_impl() const override {
     wrap_fn::emit_impl();
 
-    putln("static bool ", c_friendly_name(*m_name), "() { return bt([] {");
+    put("static bool ", c_friendly_name(*m_name), "() { return bt([] { return ");
     wrap_fn::emit_body();
-    putln("}); }");
+    putln("; }); }");
   }
 
   void emit_body() const override {
