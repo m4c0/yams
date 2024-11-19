@@ -106,22 +106,22 @@ public:
 class plus : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
-  void emit_body() const override { wrap_body("plus"); }
+  void emit_body() const override { wrap_body("plus"); } // 1-N
 };
 class star : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
-  void emit_body() const override { wrap_body("star"); }
+  void emit_body() const override { wrap_body("star"); } // 0-N
 };
 class opt : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
-  void emit_body() const override { wrap_body("opt"); }
+  void emit_body() const override { wrap_body("opt"); } // 0-1
 };
 class excl : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
-  void emit_body() const override { put("excl"); }
+  void emit_body() const override { wrap_body("excl"); } // 0
 };
 
 class match : public term_fn {
