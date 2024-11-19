@@ -30,11 +30,17 @@ using fn_ptr = hai::uptr<fn>;
 
 class wrap_fn : public fn {
   fn_ptr m_fn {};
+
+protected:
+  void wrap_body(jute::view wfn) const {
+    put(wfn, "([] { return ");
+    m_fn->emit_body();
+    put("; })");
+  }
 public:
   constexpr explicit wrap_fn(fn_ptr fn) : m_fn { traits::move(fn) } {}
   virtual void emit_fwd_decl() const override { m_fn->emit_fwd_decl(); }
   virtual void emit_impl() const override { m_fn->emit_impl(); }
-  virtual void emit_body() const override { m_fn->emit_body(); }
 };
 
 class arr_fn : public fn {
@@ -85,7 +91,7 @@ public:
 class sub : public arr_fn {
 public:
   using arr_fn::arr_fn;
-  void emit_body() const { 
+  void emit_body() const override { 
     put("(");
     for (auto i = 1; i < fns().size(); i++) {
       put("!");
@@ -100,28 +106,29 @@ public:
 class plus : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
-  void emit_body() const { put("plus"); }
+  void emit_body() const override { wrap_body("plus"); }
 };
 class star : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
+  void emit_body() const override { wrap_body("star"); }
 };
 class opt : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
-  void emit_body() const { put("opt"); }
+  void emit_body() const override { wrap_body("opt"); }
 };
 class excl : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
-  void emit_body() const { put("excl"); }
+  void emit_body() const override { put("excl"); }
 };
 
 class match : public term_fn {
   jute::heap m_c;
 public:
   constexpr explicit match(jute::heap c) : m_c { c } {}
-  void emit_body() const {
+  void emit_body() const override {
     if (m_c.size() == 0) silog::die("empty matcher");
     if (m_c.size() == 1) put("match('", m_c, "')");
     else if (m_c.size() == 3) put("match(0", m_c, ")");
@@ -149,23 +156,23 @@ class range : public term_fn {
   }
 public:
   constexpr explicit range(jute::heap mn, jute::heap mx) : m_min { mn }, m_max { mx } {}
-  void emit_body() const {
+  void emit_body() const override {
     put("range(0", to_wc(*m_min), ", 0", to_wc(*m_max), ")");
   }
 };
 
 struct start_of_line : public term_fn {
-  void emit_body() const { put("sol()"); }
+  void emit_body() const override { put("sol()"); }
 };
 struct end_of_stream : public term_fn {
-  void emit_body() const { put("match(0)"); }
+  void emit_body() const override { put("match(0)"); }
 };
 struct empty : public term_fn {
-  void emit_body() const { put("empty()"); }
+  void emit_body() const override { put("empty()"); }
 };
 
 struct tbd : public term_fn {
-  void emit_body() const { put("TBD"); }
+  void emit_body() const override { put("TBD"); }
 };
 
 class rule : public wrap_fn {
@@ -181,9 +188,9 @@ public:
   void emit_impl() const override {
     wrap_fn::emit_impl();
 
-    put("static bool ", c_friendly_name(*m_name), "() { return bt([] { return ");
-    wrap_fn::emit_body();
-    putln("; }); }");
+    put("static bool ", c_friendly_name(*m_name), "() { return ");
+    wrap_body("bt");
+    putln("; }");
   }
 
   void emit_body() const override {
