@@ -11,7 +11,13 @@ import traits;
 
 namespace j = jason::ast::nodes;
 
-static auto c_friendly_name(jute::view n) { return n; } // TODO
+static auto c_friendly_name(jute::view n) {
+  auto cstr = n.cstr();
+  for (auto & c : cstr) {
+    if (c == '-') c = '_';
+  }
+  return cstr;
+}
 
 class fn {
 public:
