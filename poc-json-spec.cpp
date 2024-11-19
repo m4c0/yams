@@ -175,6 +175,15 @@ struct tbd : public term_fn {
   void emit_body() const override { put("TBD"); }
 };
 
+class rule_ref : public term_fn {
+  jute::heap m_name;
+public:
+  constexpr rule_ref(jute::heap n) : m_name { n } {}
+
+  void emit_body() const override {
+    put(c_friendly_name(*m_name), "()");
+  }
+};
 class rule : public wrap_fn {
   jute::heap m_name;
 
@@ -313,7 +322,7 @@ public:
   fn_ptr do_rule(jute::view key) {
     // TODO: cache the result
     auto & k = m_done[key];
-    if (k) return tbd();
+    if (k) return fn_ptr { new rule_ref(key) };
     k = 1;
     return fn_ptr { new rule(key, do_cond(m_rules[key])) };
   }
