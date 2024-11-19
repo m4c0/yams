@@ -11,102 +11,152 @@ import traits;
 
 namespace j = jason::ast::nodes;
 
+static auto c_friendly_name(jute::view n) { return n; } // TODO
+
 class fn {
 public:
   virtual ~fn() {}
-  virtual void emit_interface() const = 0;
+  virtual void emit_fwd_decl() const = 0;
+  virtual void emit_impl() const = 0;
   virtual void emit_body() const = 0;
 };
 using fn_ptr = hai::uptr<fn>;
 
 class wrap_fn : public fn {
-  fn_ptr m_fn;
+  fn_ptr m_fn {};
 public:
   constexpr explicit wrap_fn(fn_ptr fn) : m_fn { traits::move(fn) } {}
-  virtual void emit_interface() const { if (m_fn) m_fn->emit_interface(); }
+  virtual void emit_fwd_decl() const override { if (m_fn) m_fn->emit_fwd_decl(); }
+  virtual void emit_impl() const override { if (m_fn) m_fn->emit_impl(); }
+  virtual void emit_body() const override { if (m_fn) m_fn->emit_body(); }
 };
 
 class arr_fn : public fn {
   hai::array<fn_ptr> m_fns;
+
+protected:
+  void emit_fns(jute::view op) const {
+    // bool first { true };
+    for (auto & fn : m_fns) {
+      if (!fn) continue;
+      // if (!first) put(op);
+      // put("(");
+      fn->emit_body();
+      // put(")");
+      // first = false;
+    }
+  }
 public:
   constexpr explicit arr_fn(hai::array<fn_ptr> fns) : m_fns { traits::move(fns) } {}
-  virtual void emit_interface() const { 
-    for (auto & fn : m_fns) if (fn) fn->emit_interface(); 
+  virtual void emit_fwd_decl() const override { 
+    for (auto & fn : m_fns) if (fn) fn->emit_fwd_decl(); 
   }
+  virtual void emit_impl() const override { 
+    for (auto & fn : m_fns) if (fn) fn->emit_impl(); 
+  }
+};
+class term_fn : public fn {
+public:
+  virtual void emit_fwd_decl() const override {}
+  virtual void emit_impl() const override {}
 };
 
 class all : public arr_fn {
 public:
   using arr_fn::arr_fn;
-  void emit_body() const { putln("// TBD: all"); }
+  void emit_body() const override { emit_fns("&&"); }
 };
 class any : public arr_fn {
 public:
   using arr_fn::arr_fn;
-  void emit_body() const { putln("// TBD: any"); }
+  void emit_body() const { emit_fns("||"); }
 };
 class sub : public arr_fn {
 public:
   using arr_fn::arr_fn;
-  void emit_body() const { putln("// TBD: sub"); }
+  void emit_body() const { putln(""); }
 };
 
 class plus : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
-  void emit_body() const { putln("// TBD: plus"); }
+  void emit_body() const { putln(""); }
 };
 class star : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
-  void emit_body() const { putln("// TBD: star"); }
 };
 class opt : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
-  void emit_body() const { putln("// TBD: opt"); }
+  void emit_body() const { putln(""); }
 };
 class excl : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
-  void emit_body() const { putln("// TBD: excl"); }
+  void emit_body() const { putln(""); }
 };
 
-class match : public fn {
+class match : public term_fn {
   jute::heap m_c;
 public:
   constexpr explicit match(jute::heap c) : m_c { c } {}
-  void emit_interface() const { putln("// TBD: match iface"); }
-  void emit_body() const { putln("// TBD: match"); }
+  void emit_body() const {
+    if (m_c.size() == 0) silog::die("empty matcher");
+    if (m_c.size() == 1) put("match('", m_c, "')");
+    else if ((*m_c)[0] == 'x' && (m_c.size() % 2) == 1) {
+      auto v = (*m_c).subview(1).after;
+      put("bt([] {");
+      while (v.size()) {
+        auto [n, r] = v.subview(2);
+        put("match('\\x", n, "')&&");
+        v = r;
+      }
+      put("true})");
+    }
+    else silog::die("invalid char matcher");
+  }
 };
-class range : public fn {
+class range : public term_fn {
   jute::heap m_min;
   jute::heap m_max;
 public:
   constexpr explicit range(jute::heap mn, jute::heap mx) : m_min { mn }, m_max { mx } {}
-  void emit_interface() const { putln("// TBD: range iface"); }
-  void emit_body() const { putln("// TBD: range"); }
+  void emit_body() const { putln(""); }
 };
 
-struct start_of_line : public fn {
-  void emit_interface() const { putln("// TBD: sol iface"); }
-  void emit_body() const { putln("// TBD: sol"); }
+struct start_of_line : public term_fn {
+  void emit_body() const { putln(""); }
 };
-struct end_of_stream : public fn {
-  void emit_interface() const { putln("// TBD: eos iface"); }
-  void emit_body() const { putln("// TBD: eos"); }
+struct end_of_stream : public term_fn {
+  void emit_body() const { putln(""); }
 };
-struct empty : public fn {
-  void emit_interface() const { putln("// TBD: empty iface"); }
-  void emit_body() const { putln("// TBD: empty"); }
+struct empty : public term_fn {
+  void emit_body() const { putln(""); }
 };
 
 class rule : public wrap_fn {
-  jute::view m_name;
-public:
-  constexpr rule(jute::view n, fn_ptr fn) : wrap_fn { traits::move(fn) }, m_name { n } {}
+  jute::heap m_name;
 
-  void emit_body() const { putln("// TBD: rule"); }
+public:
+  constexpr rule(jute::heap n, fn_ptr fn) : wrap_fn { traits::move(fn) }, m_name { n } {}
+
+  void emit_fwd_decl() const override {
+    wrap_fn::emit_fwd_decl();
+    putln("static bool ", c_friendly_name(*m_name), "();");
+  }
+  void emit_impl() const override {
+    wrap_fn::emit_impl();
+
+    putln("static bool ", c_friendly_name(*m_name), "() { return bt([] {");
+    wrap_fn::emit_body();
+    putln("}); }");
+  }
+
+  void emit_body() const override {
+    put(c_friendly_name(*m_name), "()");
+    wrap_fn::emit_body();
+  }
 };
 
 class parser {
@@ -231,8 +281,8 @@ static void parse(void *, hai::array<char> & data) {
   parser p { jute::view { data.begin(), data.size() } };
   auto fn = p.do_rule("l-yaml-stream");
   if (!fn) silog::die("something is not right");
-  fn->emit_interface();
-  fn->emit_body();
+  fn->emit_fwd_decl();
+  fn->emit_impl();
 }
 
 int main() {
