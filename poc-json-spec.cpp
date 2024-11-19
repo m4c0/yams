@@ -79,7 +79,16 @@ public:
 class sub : public arr_fn {
 public:
   using arr_fn::arr_fn;
-  void emit_body() const { put(""); }
+  void emit_body() const { 
+    put("(");
+    for (auto i = 1; i < fns().size(); i++) {
+      put("!");
+      fns()[i]->emit_body();
+      put("&&");
+    }
+    fns()[0]->emit_body();
+    put(")");
+  }
 };
 
 class plus : public wrap_fn {
