@@ -130,7 +130,8 @@ public:
   constexpr explicit match(jute::heap c) : m_c { c } {}
   void emit_body() const override {
     if (m_c.size() == 0) silog::die("empty matcher");
-    if (m_c.size() == 1) put("match('", m_c, "')");
+    else if (*m_c == "'") put("match('\\'')");
+    else if (m_c.size() == 1) put("match('", m_c, "')");
     else if (m_c.size() == 3) put("match(0", m_c, ")");
     else if ((*m_c)[0] == 'x' && (m_c.size() % 2) == 1) {
       auto v = (*m_c).subview(1).after;
