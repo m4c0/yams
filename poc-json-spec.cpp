@@ -15,6 +15,7 @@ static auto c_friendly_name(jute::view n) {
   auto cstr = n.cstr();
   for (auto & c : cstr) {
     if (c == '-') c = '_';
+    else if (c == '+') c = '_';
   }
   return cstr;
 }
@@ -172,8 +173,11 @@ struct empty : public term_fn {
   void emit_body() const override { put("empty()"); }
 };
 
-struct tbd : public term_fn {
-  void emit_body() const override { put("TBD"); }
+class tbd : public term_fn {
+  int m_x;
+public:
+  explicit constexpr tbd(int x) : m_x { x } {}
+  void emit_body() const override { put("TBD", m_x); }
 };
 
 class rule_ref : public term_fn {
@@ -215,7 +219,7 @@ class parser {
   const j::dict & m_rules;
   hashley::niamh m_done { 113 };
 
-  fn_ptr tbd() { return fn_ptr { new ::tbd {} }; }
+  fn_ptr tbd(int x) { return fn_ptr { new ::tbd {x} }; }
 
   fn_ptr do_string(const node & n) {
     auto s = cast<j::string>(n).str();
@@ -268,25 +272,24 @@ class parser {
     else if (*k == "(***)") return do_wrap_fn<star>(v);
     else if (*k == "(\?\?\?)") return do_wrap_fn<opt>(v);
     else if (*k == "(exclude)") return do_wrap_fn<excl>(v);
-    else if (*k == "(case)") return tbd();
+    else if (*k == "(case)") return tbd(1);
     else if (*k == "(<<<)") {
       // TODO: check if parameter is non-zero???
       do_cond(v);
-      return tbd();
+      return tbd(12);
     }
-    else if (*k == "(!==)") return tbd();
-    else if (*k == "(<=)") return tbd();
-    else if (*k == "(<)") return tbd();
-    else if (*k == "({2})") return tbd();
-    else if (*k == "({4})") return tbd();
-    else if (*k == "({8})") return tbd();
-    else if (*k == "({n})") return tbd();
-    else if (*k == "(set)") return tbd();
-    else if (*k == "(max)") return tbd();
+    else if (*k == "(!==)") return tbd(2);
+    else if (*k == "(<=)") return tbd(3);
+    else if (*k == "(<)") return tbd(4);
+    else if (*k == "({2})") return tbd(5);
+    else if (*k == "({4})") return tbd(6);
+    else if (*k == "({8})") return tbd(7);
+    else if (*k == "({n})") return tbd(8);
+    else if (*k == "(set)") return tbd(9);
+    else if (*k == "(max)") return tbd(10);
     else {
-      do_rule(*k);
       // TODO: parse parameters in `v`
-      return tbd();
+      return do_rule(*k);
     }
   }
   fn_ptr do_dict(const node & n) {
