@@ -176,7 +176,13 @@ public:
     , m_values { traits::move(vals) } {}
 
   void emit_body() const override {
-    put("CASE");
+    put("[&] { switch (", m_var, ") {");
+    for (auto &[k, v] : m_values) {
+      put("case ", c_friendly_name(*k), ": return ");
+      v->emit_body();
+      put(";");
+    }
+    put("}}()");
   }
 };
 
