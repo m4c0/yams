@@ -163,6 +163,23 @@ public:
   }
 };
 
+struct sw_case {
+  jute::heap key;
+  fn_ptr value;
+};
+class sw : public term_fn {
+  jute::heap m_var;
+  hai::array<sw_case> m_values;
+public:
+  constexpr explicit sw(jute::heap var, hai::array<sw_case> vals)
+    : m_var { var }
+    , m_values { traits::move(vals) } {}
+
+  void emit_body() const override {
+    put("CASE");
+  }
+};
+
 struct start_of_line : public term_fn {
   void emit_body() const override { put("sol()"); }
 };
@@ -264,6 +281,21 @@ class parser {
     return fn_ptr { new T { traits::move(fn) } };
   }
 
+  fn_ptr do_case(const node & n) {
+    auto & dict = cast<j::dict>(n);
+    // TODO: wire parameter to "var" and do the switch
+    auto var = cast<j::string>(dict["var"]).str();
+    hai::array<sw_case> cases { dict.size() - 1 };
+
+    auto ptr = cases.begin();
+    for (auto &[k, v] : dict) {
+      if (*k == "var") continue;
+      *ptr++ = { k, do_cond(v) };
+    }
+
+    return fn_ptr { new sw { var, traits::move(cases) } };
+  }
+
   fn_ptr do_pair(jute::heap k, const node & v) {
     if      (*k == "(all)") return do_arr_fn<all>(v);
     else if (*k == "(any)") return do_arr_fn<any>(v);
@@ -272,13 +304,15 @@ class parser {
     else if (*k == "(***)") return do_wrap_fn<star>(v);
     else if (*k == "(\?\?\?)") return do_wrap_fn<opt>(v);
     else if (*k == "(exclude)") return do_wrap_fn<excl>(v);
-    else if (*k == "(case)") return tbd(1);
+    else if (*k == "(case)") return do_case(v);
     else if (*k == "(<<<)") {
       // TODO: check if parameter is non-zero???
       do_cond(v);
       return tbd(12);
     }
+    else if (*k == "(===)") return tbd(1);
     else if (*k == "(!==)") return tbd(2);
+    else if (*k == "(<==)") return tbd(11);
     else if (*k == "(<=)") return tbd(3);
     else if (*k == "(<)") return tbd(4);
     else if (*k == "({2})") return tbd(5);
