@@ -360,6 +360,12 @@ class parser {
     } else if (n->type() == jason::ast::number) {
       auto val = cast<j::number>(n);
       return fn_ptr { new var { val.raw() } };
+    } else if (n->type() == jason::ast::dict) {
+      auto & [k, v] = *cast<j::dict>(n).begin();
+      return do_pair(k, v);
+    } else if (n->type() == jason::ast::null) {
+      using namespace jute::literals;
+      return fn_ptr { new var { "0"_hs } };
     } else silog::die("unknown arg type: %d", n->type());
   }
 
@@ -388,6 +394,9 @@ class parser {
     else if (*k == "({n})") return tbd(8);
     else if (*k == "(set)") return tbd(9);
     else if (*k == "(max)") return tbd(10);
+    // TODO: flip is a "case" but for values
+    else if (*k == "(flip)") return tbd(13);
+    else if (*k == "(+)") return tbd(12);
     else if (v->type() == jason::ast::string) {
       hai::array<fn_ptr> args { 1 };
       args[0] = do_arg(v);
