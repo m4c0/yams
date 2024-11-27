@@ -65,11 +65,18 @@ public:
   virtual void emit_impl() const override {}
 };
 
+class var : public term_fn {
+  jute::heap m_name;
+public:
+  explicit constexpr var(jute::heap n) : m_name { n } {}
+  void emit_body() const override { put(*m_name); }
+};
+
 class all : public arr_fn {
 public:
   using arr_fn::arr_fn;
   void emit_body() const override { 
-    put("bt([] { return ");
+    put("bt([&] { return ");
     for (auto & fn : fns()) {
       fn->emit_body();
       put("&&");
@@ -136,7 +143,7 @@ public:
     else if (m_c.size() == 3) put("match(0", m_c, ")");
     else if ((*m_c)[0] == 'x' && (m_c.size() % 2) == 1) {
       auto v = (*m_c).subview(1).after;
-      put("bt([] { return ");
+      put("bt([&] { return ");
       while (v.size()) {
         auto [n, r] = v.subview(2);
         put("match(0x", n, ")&&");
@@ -205,18 +212,18 @@ public:
 
 class rule_ref : public term_fn {
   jute::heap m_name;
-  hai::array<jute::heap> m_argv;
+  hai::array<fn_ptr> m_argv;
 
   void emit_argv() const {
     bool first = true;
     for (auto & a : m_argv) {
       if (!first) put(",");
-      put(a);
+      a->emit_body();
       first = false;
     }
   }
 public:
-  constexpr rule_ref(jute::heap n, hai::array<jute::heap> argv)
+  constexpr rule_ref(jute::heap n, hai::array<fn_ptr> argv)
     : m_name { n }
     , m_argv { traits::move(argv) } {}
 
@@ -229,7 +236,7 @@ public:
 class rule : public wrap_fn {
   jute::heap m_name;
   hai::array<jute::heap> m_args;
-  hai::array<jute::heap> m_argv;
+  hai::array<fn_ptr> m_argv;
 
   void emit_args() const {
     bool first = true;
@@ -244,13 +251,13 @@ class rule : public wrap_fn {
     bool first = true;
     for (auto & a : m_argv) {
       if (!first) put(",");
-      put(a);
+      a->emit_body();
       first = false;
     }
   }
 
 public:
-  constexpr rule(jute::heap n, fn_ptr fn, hai::array<jute::heap> args, hai::array<jute::heap> argv) 
+  constexpr rule(jute::heap n, fn_ptr fn, hai::array<jute::heap> args, hai::array<fn_ptr> argv) 
     : wrap_fn { traits::move(fn) }
     , m_name { n }
     , m_args { traits::move(args) }
@@ -345,6 +352,14 @@ class parser {
     return fn_ptr { new sw { var, traits::move(cases) } };
   }
 
+  fn_ptr do_arg(const node & n) {
+    if (n->type() == jason::ast::string) {
+      auto val = cast<j::string>(n).str();
+      if (m_rules.has_key(*val)) return do_rule(*val, {});
+      return fn_ptr { new var { val } };
+    } else silog::die("unknown arg type: %d", n->type());
+  }
+
   fn_ptr do_pair(jute::heap k, const node & v) {
     if      (*k == "(all)") return do_arr_fn<all>(v);
     else if (*k == "(any)") return do_arr_fn<any>(v);
@@ -371,11 +386,16 @@ class parser {
     else if (*k == "(set)") return tbd(9);
     else if (*k == "(max)") return tbd(10);
     else if (v->type() == jason::ast::string) {
-      // TODO: parse parameters in `v`
-      return do_rule(*k, {});
+      hai::array<fn_ptr> args { 1 };
+      args[0] = do_arg(v);
+      return do_rule(*k, traits::move(args));
     } else if (v->type() == jason::ast::array) {
-      // TODO: parse parameters in `v`
-      return do_rule(*k, {});
+      auto & arr = cast<j::array>(v);
+      hai::array<fn_ptr> args { arr.size() };
+      for (auto i = 0; i < arr.size(); i++) {
+        args[i] = do_arg(arr[i]);
+      }
+      return do_rule(*k, traits::move(args));
     } else if (v->type() == jason::ast::dict) {
       // TODO: parse parameters in `v`
       return do_rule(*k, {});
@@ -412,7 +432,7 @@ public:
     : m_json { jason::parse(src) }
     , m_rules { cast<j::dict>(m_json) } {}
 
-  fn_ptr do_rule(jute::view key, hai::array<jute::heap> argv) {
+  fn_ptr do_rule(jute::view key, hai::array<fn_ptr> argv) {
     auto & k = m_done[key];
     if (k) return fn_ptr { new rule_ref(key, traits::move(argv)) };
     k = 1;
