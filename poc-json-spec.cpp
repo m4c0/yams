@@ -111,6 +111,13 @@ public:
   }
 };
 
+struct sum : public arr_fn {
+  using arr_fn::arr_fn;
+  void emit_body() const override {
+    put("++++++");
+  }
+};
+
 class plus : public wrap_fn {
 public:
   using wrap_fn::wrap_fn;
@@ -322,6 +329,11 @@ class parser {
     }
   }
 
+  fn_ptr do_number(const node & n) {
+    auto val = cast<j::number>(n);
+    return fn_ptr { new var { val.raw() } };
+  }
+
   fn_ptr do_array(const node & n) {
     auto & arr = cast<j::array>(n);
     if (arr.size() != 2) silog::die("invalid size for range");
@@ -370,8 +382,7 @@ class parser {
       if (m_rules.has_key(*val)) return do_rule(*val, {});
       return fn_ptr { new var { val } };
     } else if (n->type() == jason::ast::number) {
-      auto val = cast<j::number>(n);
-      return fn_ptr { new var { val.raw() } };
+      return do_number(n);
     } else if (n->type() == jason::ast::dict) {
       auto & [k, v] = *cast<j::dict>(n).begin();
       return do_pair(k, v);
@@ -408,7 +419,7 @@ class parser {
     else if (*k == "(max)") return tbd(10);
     // TODO: flip is a "case" but for values
     else if (*k == "(flip)") return tbd(13);
-    else if (*k == "(+)") return tbd(12);
+    else if (*k == "(+)") return do_arr_fn<sum>(v);
     else if (v->type() == jason::ast::string) {
       hai::array<fn_ptr> args { 1 };
       args[0] = do_arg(v);
@@ -444,6 +455,8 @@ class parser {
   fn_ptr do_cond(const node & n) {
     if (n->type() == jason::ast::string) {
       return do_string(n);
+    } else if (n->type() == jason::ast::number) {
+      return do_number(n);
     } else if (n->type() == jason::ast::array) {
       return do_array(n);
     } else if (n->type() == jason::ast::dict) {
