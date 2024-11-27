@@ -182,6 +182,12 @@ public:
     : m_var { var }
     , m_values { traits::move(vals) } {}
 
+  void emit_fwd_decl() const override { 
+    for (auto &[_, fn] : m_values) fn->emit_fwd_decl(); 
+  }
+  void emit_impl() const override { 
+    for (auto &[_, fn] : m_values) fn->emit_impl(); 
+  }
   void emit_body() const override {
     put("[&] { switch (", m_var, ") {");
     for (auto &[k, v] : m_values) {
@@ -227,6 +233,12 @@ public:
     : m_name { n }
     , m_argv { traits::move(argv) } {}
 
+  void emit_fwd_decl() const override { 
+    for (auto & fn : m_argv) fn->emit_fwd_decl(); 
+  }
+  void emit_impl() const override { 
+    for (auto & fn : m_argv) fn->emit_impl(); 
+  }
   void emit_body() const override {
     put(c_friendly_name(*m_name), "(");
     emit_argv();
