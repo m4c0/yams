@@ -1,6 +1,20 @@
 #pragma once
 
-static bool bt(bool (*fn)()) { return false; }
+enum {
+  block_in,
+  block_out,
+  block_key,
+  flow_in,
+  flow_out,
+  flow_key,
+};
+enum {
+  clip,
+  keep,
+  strip,
+};
+
+static bool bt(auto && fn) { return false; }
 static bool opt(auto && fn) { return false; }
 static bool star(auto && fn) { return false; }
 static bool plus(auto && fn) { return false; }
