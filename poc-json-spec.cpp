@@ -34,7 +34,7 @@ class wrap_fn : public fn {
 
 protected:
   void wrap_body(jute::view wfn) const {
-    put(wfn, "([] { return ");
+    put(wfn, "([&] { return ");
     m_fn->emit_body();
     put("; })");
   }
@@ -214,18 +214,36 @@ public:
 };
 class rule : public wrap_fn {
   jute::heap m_name;
+  hai::array<jute::heap> m_args;
+
+  void emit_args() const {
+    bool first = true;
+    for (auto & a : m_args) {
+      if (!first) put(",");
+      put("int ");
+      put(a);
+      first = false;
+    }
+  }
 
 public:
-  constexpr rule(jute::heap n, fn_ptr fn) : wrap_fn { traits::move(fn) }, m_name { n } {}
+  constexpr rule(jute::heap n, fn_ptr fn, hai::array<jute::heap> args) 
+    : wrap_fn { traits::move(fn) }
+    , m_name { n }
+    , m_args { traits::move(args) } {}
 
   void emit_fwd_decl() const override {
     wrap_fn::emit_fwd_decl();
-    putln("static bool ", c_friendly_name(*m_name), "();");
+    put("static bool ", c_friendly_name(*m_name), "(");
+    emit_args();
+    putln(");");
   }
   void emit_impl() const override {
     wrap_fn::emit_impl();
 
-    put("static bool ", c_friendly_name(*m_name), "() { return ");
+    put("static bool ", c_friendly_name(*m_name), "(");
+    emit_args();
+    put(") { return ");
     wrap_body("bt");
     putln("; }");
   }
@@ -289,7 +307,6 @@ class parser {
 
   fn_ptr do_case(const node & n) {
     auto & dict = cast<j::dict>(n);
-    // TODO: wire parameter to "var" and do the switch
     auto var = cast<j::string>(dict["var"]).str();
     hai::array<sw_case> cases { dict.size() - 1 };
 
@@ -336,12 +353,12 @@ class parser {
     auto it = cast<j::dict>(n).begin();
     auto & [k, v] = *it;
     if (*k == "(...)") {
-      // TODO: parse parameter name in `v`
       auto & [kk, vv] = *++it;
       return do_pair(kk, vv);
     }
     else if (*k == "(if)") {
       // TODO: eval condition in 'v'
+      // TODO: eval (set)??"
       auto & [kk, vv] = *++it;
       return do_pair(kk, vv);
     }
@@ -368,7 +385,26 @@ public:
     auto & k = m_done[key];
     if (k) return fn_ptr { new rule_ref(key) };
     k = 1;
-    return fn_ptr { new rule(key, do_cond(m_rules[key])) };
+
+    hai::array<jute::heap> args {};
+    auto & r = m_rules[key];
+    if (r->type() == jason::ast::dict) {
+      auto & rd = cast<j::dict>(r);
+      if (rd.has_key("(...)")) {
+        auto & v = rd["(...)"];
+        if (v->type() == jason::ast::string) {
+          args.set_capacity(1);
+          args[0] = cast<j::string>(v).str();
+        } else if (v->type() == jason::ast::array) {
+          auto & arr = cast<j::array>(v);
+          args.set_capacity(arr.size());
+          for (auto i = 0; i < arr.size(); i++) {
+            args[i] = cast<j::string>(arr[i]).str();
+          }
+        } else silog::die("unknown parameter type");
+      }
+    }
+    return fn_ptr { new rule(key, do_cond(m_rules[key]), traits::move(args)) };
   }
 };
 
