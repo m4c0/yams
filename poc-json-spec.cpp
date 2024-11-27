@@ -357,6 +357,9 @@ class parser {
       auto val = cast<j::string>(n).str();
       if (m_rules.has_key(*val)) return do_rule(*val, {});
       return fn_ptr { new var { val } };
+    } else if (n->type() == jason::ast::number) {
+      auto val = cast<j::number>(n);
+      return fn_ptr { new var { val.raw() } };
     } else silog::die("unknown arg type: %d", n->type());
   }
 
