@@ -114,7 +114,12 @@ public:
 struct sum : public arr_fn {
   using arr_fn::arr_fn;
   void emit_body() const override {
-    put("++++++");
+    put("(");
+    for (auto & fn : fns()) {
+      fn->emit_body();
+      put("+");
+    }
+    put("0)");
   }
 };
 
@@ -376,6 +381,20 @@ class parser {
     return fn_ptr { new sw { var, traits::move(cases) } };
   }
 
+  fn_ptr do_sum(const node & n) {
+    auto & arr = cast<j::array>(n);
+    hai::varray<fn_ptr> fns { arr.size() };
+    for (auto & r : arr) {
+      if (r->type() == jason::ast::number) {
+        fns.push_back(do_number(r));
+      } else if (r->type() == jason::ast::string) {
+        auto val = cast<j::string>(r).str();
+        fns.push_back(fn_ptr { new var { val } });
+      } else silog::die("summing unknown arg type");
+    }
+    return fn_ptr { new sum { traits::move(fns) } };
+  }
+
   fn_ptr do_arg(const node & n) {
     if (n->type() == jason::ast::string) {
       auto val = cast<j::string>(n).str();
@@ -419,7 +438,7 @@ class parser {
     else if (*k == "(max)") return tbd(10);
     // TODO: flip is a "case" but for values
     else if (*k == "(flip)") return tbd(13);
-    else if (*k == "(+)") return do_arr_fn<sum>(v);
+    else if (*k == "(+)") return do_sum(v);
     else if (v->type() == jason::ast::string) {
       hai::array<fn_ptr> args { 1 };
       args[0] = do_arg(v);
