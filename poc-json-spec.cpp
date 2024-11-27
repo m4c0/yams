@@ -205,16 +205,31 @@ public:
 
 class rule_ref : public term_fn {
   jute::heap m_name;
+  hai::array<jute::heap> m_argv;
+
+  void emit_argv() const {
+    bool first = true;
+    for (auto & a : m_argv) {
+      if (!first) put(",");
+      put(a);
+      first = false;
+    }
+  }
 public:
-  constexpr rule_ref(jute::heap n) : m_name { n } {}
+  constexpr rule_ref(jute::heap n, hai::array<jute::heap> argv)
+    : m_name { n }
+    , m_argv { traits::move(argv) } {}
 
   void emit_body() const override {
-    put(c_friendly_name(*m_name), "()");
+    put(c_friendly_name(*m_name), "(");
+    emit_argv();
+    put(")");
   }
 };
 class rule : public wrap_fn {
   jute::heap m_name;
   hai::array<jute::heap> m_args;
+  hai::array<jute::heap> m_argv;
 
   void emit_args() const {
     bool first = true;
@@ -225,12 +240,21 @@ class rule : public wrap_fn {
       first = false;
     }
   }
+  void emit_argv() const {
+    bool first = true;
+    for (auto & a : m_argv) {
+      if (!first) put(",");
+      put(a);
+      first = false;
+    }
+  }
 
 public:
-  constexpr rule(jute::heap n, fn_ptr fn, hai::array<jute::heap> args) 
+  constexpr rule(jute::heap n, fn_ptr fn, hai::array<jute::heap> args, hai::array<jute::heap> argv) 
     : wrap_fn { traits::move(fn) }
     , m_name { n }
-    , m_args { traits::move(args) } {}
+    , m_args { traits::move(args) }
+    , m_argv { traits::move(argv) } {}
 
   void emit_fwd_decl() const override {
     wrap_fn::emit_fwd_decl();
@@ -249,7 +273,9 @@ public:
   }
 
   void emit_body() const override {
-    put(c_friendly_name(*m_name), "()");
+    put(c_friendly_name(*m_name), "(");
+    emit_argv();
+    put(")");
   }
 };
 
@@ -273,7 +299,7 @@ class parser {
     } else if (*s == "<empty>") {
       return fn_ptr { new empty() };
     } else {
-      return do_rule(*s);
+      return do_rule(*s, {});
     }
   }
 
@@ -344,10 +370,16 @@ class parser {
     else if (*k == "({n})") return tbd(8);
     else if (*k == "(set)") return tbd(9);
     else if (*k == "(max)") return tbd(10);
-    else {
+    else if (v->type() == jason::ast::string) {
       // TODO: parse parameters in `v`
-      return do_rule(*k);
-    }
+      return do_rule(*k, {});
+    } else if (v->type() == jason::ast::array) {
+      // TODO: parse parameters in `v`
+      return do_rule(*k, {});
+    } else if (v->type() == jason::ast::dict) {
+      // TODO: parse parameters in `v`
+      return do_rule(*k, {});
+    } else silog::die("unknown parameter type for key '%s'", (*k).cstr().begin());
   }
   fn_ptr do_dict(const node & n) {
     auto it = cast<j::dict>(n).begin();
@@ -380,10 +412,9 @@ public:
     : m_json { jason::parse(src) }
     , m_rules { cast<j::dict>(m_json) } {}
 
-  fn_ptr do_rule(jute::view key) {
-    // TODO: cache the result
+  fn_ptr do_rule(jute::view key, hai::array<jute::heap> argv) {
     auto & k = m_done[key];
-    if (k) return fn_ptr { new rule_ref(key) };
+    if (k) return fn_ptr { new rule_ref(key, traits::move(argv)) };
     k = 1;
 
     hai::array<jute::heap> args {};
@@ -404,13 +435,13 @@ public:
         } else silog::die("unknown parameter type");
       }
     }
-    return fn_ptr { new rule(key, do_cond(m_rules[key]), traits::move(args)) };
+    return fn_ptr { new rule(key, do_cond(m_rules[key]), traits::move(args), traits::move(argv)) };
   }
 };
 
 static void parse(void *, hai::array<char> & data) {
   parser p { jute::view { data.begin(), data.size() } };
-  auto fn = p.do_rule("l-yaml-stream");
+  auto fn = p.do_rule("l-yaml-stream", {});
   if (!fn) silog::die("something is not right");
   putln(R"(#include "poc.hpp")");
   fn->emit_fwd_decl();
