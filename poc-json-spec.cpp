@@ -69,7 +69,7 @@ class var : public term_fn {
   jute::heap m_name;
 public:
   explicit constexpr var(jute::heap n) : m_name { n } {}
-  void emit_body() const override { put(*m_name); }
+  void emit_body() const override { put(c_friendly_name(*m_name)); }
 };
 
 class all : public arr_fn {
