@@ -12,7 +12,7 @@ import pprent;
 import print;
 import silog;
 
-void run_test(jute::view dir) try {
+bool run_test(jute::view dir) try {
   using namespace jute::literals;
   auto base_dir = "yaml-test-suite/"_s + dir + "/";
 
@@ -25,15 +25,16 @@ void run_test(jute::view dir) try {
       view = rest;
     }
     // TODO: deal with positive tests
-    return;
+    return false;
   }
   auto err_file = (base_dir + "error").cstr();
   if (mtime::of(err_file.begin())) {
     // TODO: deal with negative tests
-    return;
+    return false;
   }
 
   // TODO: how to test these? (example: M5DY)
+  return false;
 } catch (...) {
   silog::whilst("running test [%s]", dir.begin());
 }
@@ -41,7 +42,7 @@ void run_test(jute::view dir) try {
 int main() {
   for (auto dir : pprent::list("yaml-test-suite/name")) {
     if (dir[0] == '.') continue;
-    run_test(jute::view::unsafe(dir));
+    if (!run_test(jute::view::unsafe(dir))) silog::log(silog::error, "test failed: %s", dir);
   }
 }
 
