@@ -12,24 +12,36 @@ import pprent;
 import print;
 import silog;
 
+void run_test(jute::view dir) try {
+  using namespace jute::literals;
+  auto base_dir = "yaml-test-suite/"_s + dir + "/";
+
+  auto in_json = (base_dir + "in.json").cstr();
+  if (mtime::of(in_json.begin())) {
+    auto json_src = jojo::read_cstr(in_json);
+    auto view = jute::view { json_src };
+    while (view.size()) {
+      auto [ json, rest ] = jason::partial_parse(view);
+      view = rest;
+    }
+    // TODO: deal with positive tests
+    return;
+  }
+  auto err_file = (base_dir + "error").cstr();
+  if (mtime::of(err_file.begin())) {
+    // TODO: deal with negative tests
+    return;
+  }
+
+  // TODO: how to test these? (example: M5DY)
+} catch (...) {
+  silog::whilst("running test [%s]", dir.begin());
+}
+
 int main() {
-  for (auto dir : pprent::list("yaml-test-suite")) {
+  for (auto dir : pprent::list("yaml-test-suite/name")) {
     if (dir[0] == '.') continue;
-
-    using namespace jute::literals;
-    auto base_dir = "yaml-test-suite/"_s + jute::view::unsafe(dir) + "/";
-
-    auto in_json = (base_dir + "in.json").cstr();
-    if (mtime::of(in_json.begin())) {
-      auto json = jason::parse(jojo::read_cstr(in_json));
-      continue;
-    }
-    auto err_file = (base_dir + "error").cstr();
-    if (mtime::of(err_file.begin())) {
-      continue;
-    }
-
-    // TODO: how to test these? (example: M5DY)
+    run_test(jute::view::unsafe(dir));
   }
 }
 
