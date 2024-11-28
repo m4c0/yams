@@ -1,4 +1,10 @@
-#pragma leco tool
+// #pragma leco tool
+
+/// Attempt of implementing a YAML parser taking the HTML spec as a basis.
+///
+/// It seemed a nice idea until it wasn't. The spec is complex enough to
+/// require a "all-or-nothing" approach to parsing. Therefore, it was
+/// impossible to get something useful in earlier stages of development.
 
 import hai;
 import jojo;

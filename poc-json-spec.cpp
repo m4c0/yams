@@ -1,4 +1,20 @@
-#pragma leco tool
+// #pragma leco tool
+
+/// Attempt of interpreting the YAML spec in JSON format and output a C++
+/// parser.
+///
+/// Idea had potential, but I'm not sure if the spec in JSON format yields a
+/// decent result.
+///
+/// For instance, there is a lot of nodes in the grammar which needs a crystal
+/// ball to understand.
+///
+/// A hacked version could also be used to ignore some contextual formatting
+/// (like assuming parameters are numbers only). But it was nearly doubling the
+/// parser size.
+///
+/// The last straw was usage of inconsistent/undeclared variables. There are
+/// references to "t" and "m" etc which are defined in a dynamic context.
 
 import hai;
 import hashley;
