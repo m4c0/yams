@@ -519,7 +519,7 @@ static void parse(void *, hai::array<char> & data) {
   parser p { jute::view { data.begin(), data.size() } };
   auto fn = p.do_rule("l-yaml-stream", {});
   if (!fn) silog::die("something is not right");
-  putln(R"(#include "poc.hpp")");
+  putln(R"(#include "poc-json-spec.hpp")");
   fn->emit_fwd_decl();
   fn->emit_impl();
 }
