@@ -40,12 +40,15 @@ bool run_test(auto dir) try {
   silog::whilst("running test [%s]", dir.cstr().begin());
 }
 
+static int counts[2] {};
 void recurse(jute::view base) {
   for (auto dir : pprent::list(base.begin())) {
     if (dir[0] == '.') continue;
     auto base_dir = base + jute::view::unsafe(dir) + "/";
 
     if (mtime::of((base_dir + "/===").cstr().begin()) != 0) {
+      auto success = run_test(base_dir);
+      counts[success ? 0 : 1]++;
       if (!run_test(base_dir)) silog::log(silog::error, "test failed: %s", base_dir.cstr().begin());
     } else {
       recurse(base_dir.cstr());
@@ -56,5 +59,6 @@ void recurse(jute::view base) {
 int main() {
   jute::view base = "yaml-test-suite/name/";
   recurse(base);
+  silog::log(silog::info, "success: %d -- failed: %d", counts[0], counts[1]);
 }
 
