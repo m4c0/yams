@@ -87,11 +87,11 @@ namespace yams::ast {
   }
 
   static constexpr node do_string(char_stream & ts);
-  static constexpr node do_value(char_stream & ts);
+  static constexpr node do_value(char_stream & ts, int indent);
 
   static constexpr node do_nil() { return { type::nil }; }
 
-  static constexpr node do_map(char_stream & ts) {
+  static constexpr node do_map(char_stream & ts, int indent) {
     node res {
       .type = type::map,
       .children = node::kids::make(),
@@ -105,7 +105,14 @@ namespace yams::ast {
       ts.match(':');
       take_spaces(ts);
 
-      res.children->push_back(do_string(ts));
+      if (ts.peek() == '\n') {
+        ts.match('\n');
+        auto ind = take_spaces(ts);
+        if (ind <= indent) fail("TBD: next indent is smaller");
+        res.children->push_back(do_value(ts, ind));
+      } else {
+        res.children->push_back(do_string(ts));
+      }
       (*res.index)[key] = res.children->size();
     } while (is_alpha(ts));
 
@@ -131,12 +138,12 @@ namespace yams::ast {
     return res;
   }
 
-  static constexpr node do_value(char_stream & ts) {
+  static constexpr node do_value(char_stream & ts, int indent) {
     switch (ts.peek()) {
       case 0:   return ast::do_nil();
       case '-': return ast::do_seq(ts);
       default:
-        if (ast::is_alpha(ts)) return ast::do_map(ts);
+        if (ast::is_alpha(ts)) return ast::do_map(ts, indent);
         ts.fail("unexpected char ", ts.peek());
     }
   }
@@ -144,7 +151,7 @@ namespace yams::ast {
 namespace yams {
   constexpr ast::node parse(jute::view file, jute::view src) {
     char_stream ts { file, src };
-    return ast::do_value(ts);
+    return ast::do_value(ts, 0);
   }
 }
 
