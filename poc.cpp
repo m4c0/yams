@@ -86,6 +86,7 @@ namespace yams::ast {
     return v.size();
   }
 
+  static constexpr node do_string(char_stream & ts);
   static constexpr node do_value(char_stream & ts);
 
   static constexpr node do_nil() { return { type::nil }; }
@@ -104,8 +105,7 @@ namespace yams::ast {
       ts.match(':');
       take_spaces(ts);
 
-      auto var = do_value(ts);
-      res.children->push_back(var);
+      res.children->push_back(do_string(ts));
       (*res.index)[key] = res.children->size();
     } while (is_alpha(ts));
 
@@ -168,7 +168,7 @@ void compare(const yams::ast::node & yaml, const auto & json) {
     if (jd.size() != yaml.children->size()) yams::fail("mismatched size: ", jd.size(), " v ", yaml.children->size());
     for (auto &[k, v] : jd) {
       if (!yaml.index->has(*k)) yams::fail("missing key in map: ", k);
-      compare(yaml.children->seek((*yaml.index)[*k]), v);
+      compare(yaml.children->seek((*yaml.index)[*k] - 1), v);
     }
     return;
   }
