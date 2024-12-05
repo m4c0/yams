@@ -140,11 +140,13 @@ namespace yams::ast {
 
   static constexpr node do_value(char_stream & ts, int indent) {
     auto ind = take_spaces(ts);
-    if (ind < indent) fail("TBD: next indent is smaller: ", ind, " v ", indent);
+    if (ind < indent) ts.fail("TBD: next indent is smaller: ", ind, " v ", indent);
 
     switch (ts.peek()) {
       case 0:   return ast::do_nil();
       case '-': return ast::do_seq(ts);
+      case '"': ts.fail("TBD: double-quoted strings");
+      case '{': ts.fail("TBD: json-like maps");
       default:
         if (ast::is_alpha(ts)) return ast::do_map(ts, ind);
         ts.fail("unexpected char [", ts.peek(), "]");
