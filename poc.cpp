@@ -29,6 +29,8 @@ namespace yams {
   public:
     constexpr explicit char_stream(jute::view fn, jute::view src) : m_filename {fn}, m_src {src} {}
 
+    constexpr const char * ptr() { return m_src.data(); }
+
     constexpr char peek() { return m_src.size() ? m_src[0] : 0; }
     constexpr char take() {
       if (m_src.size() == 0) return 0;
@@ -56,18 +58,23 @@ namespace yams::ast {
     using kids = hai::sptr<hai::chain<node>>;
 
     type type {};
+    jute::view content {};
     kids children {};
   };
 
   static constexpr node do_nil() { return { type::nil }; }
 
   static constexpr node do_string(char_stream & ts) {
+    auto start = ts.ptr();
+
     while (ts.peek() >= 32 && ts.peek() <= 127) {
       ts.take();
     }
 
+    auto len = static_cast<unsigned>(ts.ptr() - start);
+
     ts.match('\n');
-    return { type::string }; 
+    return { .type = type::string, .content = jute::view { start, len } }; 
   }
 
   static constexpr node do_list(char_stream & ts) {
@@ -100,10 +107,15 @@ void compare(const yams::ast::node & yaml, const auto & json) {
   namespace y = yams::ast;
   if (yaml.type == y::type::list) {
     auto & jd = j::cast<j::nodes::array>(json);
-    if (jd.size() != yaml.children->size()) yams::fail("mismatched size", jd.size(), yaml.children->size());
+    if (jd.size() != yaml.children->size()) yams::fail("mismatched size: ", jd.size(), " v ", yaml.children->size());
     for (auto i = 0; i < jd.size(); i++) {
       compare(yaml.children->seek(i), jd[i]);
     }
+    return;
+  }
+  if (yaml.type == y::type::string) {
+    auto & jd = j::cast<j::nodes::string>(json);
+    if (jd.str() != yaml.content) yams::fail("mismatched string: ", jd.str(), " v ", yaml.content);
     return;
   }
   yams::fail("unknown yaml type: ", static_cast<int>(yaml.type));
