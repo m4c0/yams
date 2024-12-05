@@ -174,9 +174,12 @@ void recurse(jute::view base) {
   }
 }
 
-int main() {
+int main() try {
+  // return run_test(jute::view{"yaml-test-suite/FQ7F/"}) ? 0 : 1;
   jute::view base = "yaml-test-suite/name/";
   recurse(base);
   silog::log(silog::info, "success: %d -- failed: %d", counts[0], counts[1]);
+} catch (...) {
+  return 1;
 }
 
