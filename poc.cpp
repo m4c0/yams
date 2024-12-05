@@ -69,6 +69,18 @@ namespace yams::ast {
   static constexpr bool is_alpha(char_stream & ts) {
     return ts.peek() >= 32 && ts.peek() <= 127;
   }
+  static constexpr jute::view take_string(char_stream & ts, auto && fn) {
+    auto start = ts.ptr();
+    while (fn(ts)) ts.take();
+    auto len = static_cast<unsigned>(ts.ptr() - start);
+    return jute::view { start, len };
+  }
+  static constexpr int take_spaces(char_stream & ts) {
+    auto v = take_string(ts, [](auto & ts) { return ts.peek() == ' '; });
+    return v.size();
+  }
+
+  static constexpr node do_value(char_stream & ts);
 
   static constexpr node do_nil() { return { type::nil }; }
 
@@ -78,18 +90,26 @@ namespace yams::ast {
       .children = node::kids::make(),
       .index = node::idx::make(17U),
     };
+
+    do {
+      auto key = take_string(ts, [](auto & ts) -> bool {
+        return is_alpha(ts) && ts.peek() != ':';
+      });
+      ts.match(':');
+      take_spaces(ts);
+
+      auto var = do_value(ts);
+      res.children->push_back(var);
+      (*res.index)[key] = res.children->size();
+    } while (is_alpha(ts));
+
     return res;
   }
 
   static constexpr node do_string(char_stream & ts) {
-    auto start = ts.ptr();
-
-    while (is_alpha(ts)) ts.take();
-
-    auto len = static_cast<unsigned>(ts.ptr() - start);
-
+    auto str = take_string(ts, is_alpha);
     ts.match('\n');
-    return { .type = type::string, .content = jute::view { start, len } }; 
+    return { .type = type::string, .content = str }; 
   }
 
   static constexpr node do_seq(char_stream & ts) {
@@ -97,18 +117,15 @@ namespace yams::ast {
 
     do {
       ts.match('-');
-
-      while (ts.peek() == ' ') ts.take();
+      take_spaces(ts);
 
       res.children->push_back(do_string(ts));
     } while (ts.peek() == '-');
 
     return res;
   }
-}
-namespace yams {
-  constexpr ast::node parse(jute::view file, jute::view src) {
-    char_stream ts { file, src };
+
+  static constexpr node do_value(char_stream & ts) {
     switch (ts.peek()) {
       case 0:   return ast::do_nil();
       case '-': return ast::do_seq(ts);
@@ -116,6 +133,12 @@ namespace yams {
         if (ast::is_alpha(ts)) return ast::do_map(ts);
         ts.fail("unexpected char ", ts.peek());
     }
+  }
+}
+namespace yams {
+  constexpr ast::node parse(jute::view file, jute::view src) {
+    char_stream ts { file, src };
+    return ast::do_value(ts);
   }
 }
 
