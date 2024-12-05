@@ -37,27 +37,56 @@ namespace yams {
       putln(m_filename, ":", m_line, ":", m_col, ": ", msg);
       throw failure {};
     }
+    void match(char c) {
+      if (peek() != c) fail("mismatched char");
+      else take();
+    }
   };
 }
 namespace yams::ast {
   enum class type {
     nil,
     list,
+    string,
   };
   struct node {
+    using kids = hai::sptr<hai::chain<node>>;
+
     type type {};
-    hai::sptr<hai::array<node>> children {};
+    kids children {};
   };
 
+  static node do_nil() { return { type::nil }; }
+
+  static node do_string(char_stream & ts) {
+    while (ts.peek() >= 32 && ts.peek() <= 127) {
+      ts.take();
+    }
+
+    ts.match('\n');
+    putln("str");
+    return { type::string }; 
+  }
+
   static node do_list(char_stream & ts) {
-    return { type::list };
+    node res { .type = type::list, .children = node::kids::make() };
+
+    do {
+      ts.match('-');
+
+      while (ts.peek() == ' ') ts.take();
+
+      res.children->push_back(do_string(ts));
+    } while (ts.peek() == '-');
+
+    return res;
   }
 }
 namespace yams {
   ast::node parse(jute::view file, jute::view src) {
     char_stream ts { file, src };
     switch (ts.peek()) {
-      case 0: return ast::node { ast::type::nil };
+      case 0: return ast::do_nil();
       case '-': return ast::do_list(ts);
       default: ts.fail("unexpected char");
     }
