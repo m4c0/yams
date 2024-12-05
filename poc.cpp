@@ -105,6 +105,7 @@ namespace yams {
 void compare(const yams::ast::node & yaml, const auto & json) {
   namespace j = jason::ast;
   namespace y = yams::ast;
+
   if (j::isa<j::nodes::array>(json)) {
     auto & jd = j::cast<j::nodes::array>(json);
     if (yaml.type != y::type::list) yams::fail("expecting list, got type ", static_cast<int>(yaml.type));
@@ -114,12 +115,14 @@ void compare(const yams::ast::node & yaml, const auto & json) {
     }
     return;
   }
+
   if (j::isa<j::nodes::string>(json)) {
     auto & jd = j::cast<j::nodes::string>(json);
     if (yaml.type != y::type::string) yams::fail("expecting string, got type ", static_cast<int>(yaml.type));
     if (jd.str() != yaml.content) yams::fail("mismatched string: ", jd.str(), " v ", yaml.content);
     return;
   }
+
   yams::fail("unknown yaml type: ", static_cast<int>(yaml.type));
 }
 bool run_test(auto dir) try {
@@ -133,6 +136,10 @@ bool run_test(auto dir) try {
   if (mtime::of(in_json.begin())) {
     auto json_src = jojo::read_cstr(in_json);
     auto view = jute::view { json_src };
+    if (view.size() == 0) {
+      if (yaml.type != yams::ast::type::nil) yams::fail("expecing empty yaml");
+      return true;
+    }
     while (view.size()) {
       auto [ json, rest ] = jason::partial_parse(view);
       compare(yaml, json);
