@@ -95,12 +95,25 @@ namespace yams {
   }
 }
 
+void compare(const yams::ast::node & yaml, const auto & json) {
+  namespace j = jason::ast;
+  namespace y = yams::ast;
+  if (yaml.type == y::type::list) {
+    auto & jd = j::cast<j::nodes::array>(json);
+    if (jd.size() != yaml.children->size()) yams::fail("mismatched size", jd.size(), yaml.children->size());
+    for (auto i = 0; i < jd.size(); i++) {
+      compare(yaml.children->seek(i), jd[i]);
+    }
+    return;
+  }
+  yams::fail("unknown yaml type: ", static_cast<int>(yaml.type));
+}
 bool run_test(auto dir) try {
   auto in_yaml = (dir + "in.yaml").cstr();
   if (mtime::of(in_yaml.begin()) == 0) silog::die("invalid test file: %s", in_yaml.begin());
 
-  auto yaml = jojo::read_cstr(in_yaml);
-  yams::parse(in_yaml, yaml);
+  auto yaml_src = jojo::read_cstr(in_yaml);
+  auto yaml = yams::parse(in_yaml, yaml_src);
 
   auto in_json = (dir + "in.json").cstr();
   if (mtime::of(in_json.begin())) {
@@ -108,7 +121,10 @@ bool run_test(auto dir) try {
     auto view = jute::view { json_src };
     while (view.size()) {
       auto [ json, rest ] = jason::partial_parse(view);
+      compare(yaml, json);
       view = rest;
+      // TODO: deal with multiple docs
+      return rest == "";
     }
     // TODO: deal with positive tests
     return false;
