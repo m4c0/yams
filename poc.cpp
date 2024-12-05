@@ -37,6 +37,12 @@ namespace yams {
       if (m_src.size() == 0) return 0;
       auto [l, r] = m_src.subview(1);
       m_src = r;
+      if (l[0] == '\n') {
+        m_line++;
+        m_col = 1;
+      } else {
+        m_col++;
+      }
       return l[0];
     }
 
