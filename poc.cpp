@@ -50,7 +50,7 @@ namespace yams {
       yams::fail(m_filename, ":", m_line, ":", m_col, ": ", msg, extra...);
     }
     constexpr void match(char c) {
-      if (peek() != c) fail("mismatched char");
+      if (peek() != c) fail("mismatched char: [", peek(), "] v [", c, "]");
       else take();
     }
   };
