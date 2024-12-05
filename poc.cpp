@@ -4,6 +4,7 @@
 /// Hypothesis: tests should contain and describe YAML by use-cases, which can
 /// help prioritise feature support and lead to a parser MVP
 
+import hai;
 import jason;
 import jojo;
 import jute;
@@ -32,17 +33,32 @@ namespace yams {
       return l[0];
     }
 
-    void fail(jute::view msg) {
+    [[noreturn]] void fail(jute::view msg) {
       putln(m_filename, ":", m_line, ":", m_col, ": ", msg);
       throw failure {};
     }
   };
+}
+namespace yams::ast {
+  enum class type {
+    nil,
+    list,
+  };
+  struct node {
+    type type {};
+    hai::sptr<hai::array<node>> children {};
+  };
 
-  void parse(jute::view file, jute::view src) {
+  static node do_list(char_stream & ts) {
+    return { type::list };
+  }
+}
+namespace yams {
+  ast::node parse(jute::view file, jute::view src) {
     char_stream ts { file, src };
-    switch (ts.take()) {
-      case 0: return;
-      case '-': //do_list();
+    switch (ts.peek()) {
+      case 0: return ast::node { ast::type::nil };
+      case '-': return ast::do_list(ts);
       default: ts.fail("unexpected char");
     }
   }
