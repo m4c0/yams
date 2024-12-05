@@ -105,16 +105,18 @@ namespace yams {
 void compare(const yams::ast::node & yaml, const auto & json) {
   namespace j = jason::ast;
   namespace y = yams::ast;
-  if (yaml.type == y::type::list) {
+  if (j::isa<j::nodes::array>(json)) {
     auto & jd = j::cast<j::nodes::array>(json);
+    if (yaml.type != y::type::list) yams::fail("expecting list, got type ", static_cast<int>(yaml.type));
     if (jd.size() != yaml.children->size()) yams::fail("mismatched size: ", jd.size(), " v ", yaml.children->size());
     for (auto i = 0; i < jd.size(); i++) {
       compare(yaml.children->seek(i), jd[i]);
     }
     return;
   }
-  if (yaml.type == y::type::string) {
+  if (j::isa<j::nodes::string>(json)) {
     auto & jd = j::cast<j::nodes::string>(json);
+    if (yaml.type != y::type::string) yams::fail("expecting string, got type ", static_cast<int>(yaml.type));
     if (jd.str() != yaml.content) yams::fail("mismatched string: ", jd.str(), " v ", yaml.content);
     return;
   }
