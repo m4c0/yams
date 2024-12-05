@@ -82,7 +82,9 @@ namespace yams::ast {
     return jute::view { start, len };
   }
   static constexpr int take_spaces(char_stream & ts) {
-    auto v = take_string(ts, [](auto & ts) { return ts.peek() == ' '; });
+    auto v = take_string(ts, [](auto & ts) { 
+      return ts.peek() == ' ' || ts.peek() == '\t';
+    });
     return v.size();
   }
 
