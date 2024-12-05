@@ -5,6 +5,7 @@
 /// help prioritise feature support and lead to a parser MVP
 
 import hai;
+import hashley;
 import jason;
 import jojo;
 import jute;
@@ -57,10 +58,12 @@ namespace yams::ast {
   };
   struct node {
     using kids = hai::sptr<hai::chain<node>>;
+    using idx = hai::sptr<hashley::niamh>;
 
     type type {};
     jute::view content {};
     kids children {};
+    idx index {};
   };
 
   static constexpr bool is_alpha(char_stream & ts) {
@@ -68,6 +71,15 @@ namespace yams::ast {
   }
 
   static constexpr node do_nil() { return { type::nil }; }
+
+  static constexpr node do_map(char_stream & ts) {
+    node res {
+      .type = type::map,
+      .children = node::kids::make(),
+      .index = node::idx::make(17U),
+    };
+    return res;
+  }
 
   static constexpr node do_string(char_stream & ts) {
     auto start = ts.ptr();
@@ -98,9 +110,11 @@ namespace yams {
   constexpr ast::node parse(jute::view file, jute::view src) {
     char_stream ts { file, src };
     switch (ts.peek()) {
-      case 0: return ast::do_nil();
+      case 0:   return ast::do_nil();
       case '-': return ast::do_seq(ts);
-      default: ts.fail("unexpected char ", ts.peek());
+      default:
+        if (ast::is_alpha(ts)) return ast::do_map(ts);
+        ts.fail("unexpected char ", ts.peek());
     }
   }
 }
@@ -115,6 +129,17 @@ void compare(const yams::ast::node & yaml, const auto & json) {
     if (jd.size() != yaml.children->size()) yams::fail("mismatched size: ", jd.size(), " v ", yaml.children->size());
     for (auto i = 0; i < jd.size(); i++) {
       compare(yaml.children->seek(i), jd[i]);
+    }
+    return;
+  }
+
+  if (j::isa<j::nodes::dict>(json)) {
+    auto & jd = j::cast<j::nodes::dict>(json);
+    if (yaml.type != y::type::map) yams::fail("expecting map, got type ", static_cast<int>(yaml.type));
+    if (jd.size() != yaml.children->size()) yams::fail("mismatched size: ", jd.size(), " v ", yaml.children->size());
+    for (auto &[k, v] : jd) {
+      if (!yaml.index->has(*k)) yams::fail("missing key in map: ", k);
+      compare(yaml.children->seek((*yaml.index)[*k]), v);
     }
     return;
   }
