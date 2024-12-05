@@ -15,6 +15,10 @@ import silog;
 
 namespace yams {
   struct failure {};
+  [[noreturn]] static constexpr void fail(auto... msg) {
+    putln(msg...);
+    throw failure();
+  }
 
   class char_stream { 
     jute::view m_filename;
@@ -25,19 +29,18 @@ namespace yams {
   public:
     constexpr explicit char_stream(jute::view fn, jute::view src) : m_filename {fn}, m_src {src} {}
 
-    char peek() { return m_src.size() ? m_src[0] : 0; }
-    char take() {
+    constexpr char peek() { return m_src.size() ? m_src[0] : 0; }
+    constexpr char take() {
       if (m_src.size() == 0) return 0;
       auto [l, r] = m_src.subview(1);
       m_src = r;
       return l[0];
     }
 
-    [[noreturn]] void fail(jute::view msg) {
-      putln(m_filename, ":", m_line, ":", m_col, ": ", msg);
-      throw failure {};
+    [[noreturn]] constexpr void fail(jute::view msg, auto... extra) {
+      yams::fail(m_filename, ":", m_line, ":", m_col, ": ", msg, extra...);
     }
-    void match(char c) {
+    constexpr void match(char c) {
       if (peek() != c) fail("mismatched char");
       else take();
     }
@@ -56,19 +59,18 @@ namespace yams::ast {
     kids children {};
   };
 
-  static node do_nil() { return { type::nil }; }
+  static constexpr node do_nil() { return { type::nil }; }
 
-  static node do_string(char_stream & ts) {
+  static constexpr node do_string(char_stream & ts) {
     while (ts.peek() >= 32 && ts.peek() <= 127) {
       ts.take();
     }
 
     ts.match('\n');
-    putln("str");
     return { type::string }; 
   }
 
-  static node do_list(char_stream & ts) {
+  static constexpr node do_list(char_stream & ts) {
     node res { .type = type::list, .children = node::kids::make() };
 
     do {
@@ -83,12 +85,12 @@ namespace yams::ast {
   }
 }
 namespace yams {
-  ast::node parse(jute::view file, jute::view src) {
+  constexpr ast::node parse(jute::view file, jute::view src) {
     char_stream ts { file, src };
     switch (ts.peek()) {
       case 0: return ast::do_nil();
       case '-': return ast::do_list(ts);
-      default: ts.fail("unexpected char");
+      default: ts.fail("unexpected char ", ts.peek());
     }
   }
 }
