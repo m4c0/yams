@@ -51,7 +51,8 @@ namespace yams {
 namespace yams::ast {
   enum class type {
     nil,
-    list,
+    map,
+    seq,
     string,
   };
   struct node {
@@ -62,14 +63,16 @@ namespace yams::ast {
     kids children {};
   };
 
+  static constexpr bool is_alpha(char_stream & ts) {
+    return ts.peek() >= 32 && ts.peek() <= 127;
+  }
+
   static constexpr node do_nil() { return { type::nil }; }
 
   static constexpr node do_string(char_stream & ts) {
     auto start = ts.ptr();
 
-    while (ts.peek() >= 32 && ts.peek() <= 127) {
-      ts.take();
-    }
+    while (is_alpha(ts)) ts.take();
 
     auto len = static_cast<unsigned>(ts.ptr() - start);
 
@@ -77,8 +80,8 @@ namespace yams::ast {
     return { .type = type::string, .content = jute::view { start, len } }; 
   }
 
-  static constexpr node do_list(char_stream & ts) {
-    node res { .type = type::list, .children = node::kids::make() };
+  static constexpr node do_seq(char_stream & ts) {
+    node res { .type = type::seq, .children = node::kids::make() };
 
     do {
       ts.match('-');
@@ -96,7 +99,7 @@ namespace yams {
     char_stream ts { file, src };
     switch (ts.peek()) {
       case 0: return ast::do_nil();
-      case '-': return ast::do_list(ts);
+      case '-': return ast::do_seq(ts);
       default: ts.fail("unexpected char ", ts.peek());
     }
   }
@@ -108,7 +111,7 @@ void compare(const yams::ast::node & yaml, const auto & json) {
 
   if (j::isa<j::nodes::array>(json)) {
     auto & jd = j::cast<j::nodes::array>(json);
-    if (yaml.type != y::type::list) yams::fail("expecting list, got type ", static_cast<int>(yaml.type));
+    if (yaml.type != y::type::seq) yams::fail("expecting sequence, got type ", static_cast<int>(yaml.type));
     if (jd.size() != yaml.children->size()) yams::fail("mismatched size: ", jd.size(), " v ", yaml.children->size());
     for (auto i = 0; i < jd.size(); i++) {
       compare(yaml.children->seek(i), jd[i]);
