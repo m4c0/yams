@@ -145,6 +145,7 @@ namespace yams::ast {
     switch (ts.peek()) {
       case 0:   return ast::do_nil();
       case '-': return ast::do_seq(ts);
+      case '!': ts.fail("TBD: tags");
       case '|': ts.fail("TBD: multi-line text");
       case '>': ts.fail("TBD: multi-line text");
       case '"': ts.fail("TBD: double-quoted strings");
