@@ -16,7 +16,7 @@ import silog;
 
 namespace yams {
   struct failure {};
-  [[noreturn]] static constexpr void fail(auto... msg) {
+  [[noreturn]] static constexpr void fail_(auto... msg) {
     putln(msg...);
     throw failure();
   }
@@ -56,7 +56,7 @@ namespace yams {
     }
 
     [[noreturn]] constexpr void fail(jute::view msg, auto... extra) const {
-      yams::fail(m_filename, ":", m_line, ":", m_col, ": ", msg, extra...);
+      yams::fail_(m_filename, ":", m_line, ":", m_col, ": ", msg, extra...);
     }
     constexpr void match(char c) {
       if (peek() != c) fail("mismatched char - got: [", esc_peek(), "] exp: [", c, "]");
@@ -71,6 +71,16 @@ namespace yams::ast {
     seq,
     string,
   };
+
+  static constexpr jute::view type_name(type t) {
+    switch (t) {
+      case type::nil:    return "nil";
+      case type::map:    return "map";
+      case type::seq:    return "seq";
+      case type::string: return "string";
+    }
+  }
+
   struct node {
     using kids = hai::sptr<hai::chain<node>>;
     using idx = hai::sptr<hashley::niamh>;
@@ -79,6 +89,10 @@ namespace yams::ast {
     jute::view content {};
     kids children {};
     idx index {};
+
+    jute::view filename {};
+    unsigned line { 1 };
+    unsigned col { 1 };
   };
 
   static constexpr bool is_alpha(char_stream & ts) {
@@ -167,6 +181,10 @@ namespace yams::ast {
   }
 }
 namespace yams {
+  [[noreturn]] constexpr void fail(const ast::node & n, jute::view msg, auto... extra) {
+    yams::fail_(n.filename, ":", n.line, ":", n.col, ": ", msg, extra...);
+  }
+
   constexpr ast::node parse(jute::view file, jute::view src) {
     char_stream ts { file, src };
     return ast::do_value(ts, 0);
@@ -179,8 +197,8 @@ void compare(const yams::ast::node & yaml, const auto & json) {
 
   if (j::isa<j::nodes::array>(json)) {
     auto & jd = j::cast<j::nodes::array>(json);
-    if (yaml.type != y::type::seq) yams::fail("expecting sequence, got type ", static_cast<int>(yaml.type));
-    if (jd.size() != yaml.children->size()) yams::fail("mismatched size: ", jd.size(), " v ", yaml.children->size());
+    if (yaml.type != y::type::seq) yams::fail(yaml, "expecting sequence, got type ", type_name(yaml.type));
+    if (jd.size() != yaml.children->size()) yams::fail(yaml, "mismatched size: ", jd.size(), " v ", yaml.children->size());
     for (auto i = 0; i < jd.size(); i++) {
       compare(yaml.children->seek(i), jd[i]);
     }
@@ -189,10 +207,10 @@ void compare(const yams::ast::node & yaml, const auto & json) {
 
   if (j::isa<j::nodes::dict>(json)) {
     auto & jd = j::cast<j::nodes::dict>(json);
-    if (yaml.type != y::type::map) yams::fail("expecting map, got type ", static_cast<int>(yaml.type));
-    if (jd.size() != yaml.children->size()) yams::fail("mismatched size: ", jd.size(), " v ", yaml.children->size());
+    if (yaml.type != y::type::map) yams::fail(yaml, "expecting map, got type ", type_name(yaml.type));
+    if (jd.size() != yaml.children->size()) yams::fail(yaml, "mismatched size: ", jd.size(), " v ", yaml.children->size());
     for (auto &[k, v] : jd) {
-      if (!yaml.index->has(*k)) yams::fail("missing key in map: ", k);
+      if (!yaml.index->has(*k)) yams::fail(yaml, "missing key in map: ", k);
       compare(yaml.children->seek((*yaml.index)[*k] - 1), v);
     }
     return;
@@ -200,12 +218,12 @@ void compare(const yams::ast::node & yaml, const auto & json) {
 
   if (j::isa<j::nodes::string>(json)) {
     auto & jd = j::cast<j::nodes::string>(json);
-    if (yaml.type != y::type::string) yams::fail("expecting string, got type ", static_cast<int>(yaml.type));
-    if (jd.str() != yaml.content) yams::fail("mismatched string - got: [", yaml.content, "] exp: [", jd.str(), "]");
+    if (yaml.type != y::type::string) yams::fail(yaml, "expecting string, got ", type_name(yaml.type));
+    if (jd.str() != yaml.content) yams::fail(yaml, "mismatched string - got: [", yaml.content, "] exp: [", jd.str(), "]");
     return;
   }
 
-  yams::fail("unknown yaml type: ", static_cast<int>(yaml.type));
+  yams::fail(yaml, "unknown yaml type: ", type_name(yaml.type));
 }
 bool run_test(auto dir) try {
   auto in_yaml = (dir + "in.yaml").cstr();
@@ -219,7 +237,7 @@ bool run_test(auto dir) try {
     auto json_src = jojo::read_cstr(in_json);
     auto view = jute::view { json_src };
     if (view.size() == 0) {
-      if (yaml.type != yams::ast::type::nil) yams::fail("expecing empty yaml");
+      if (yaml.type != yams::ast::type::nil) yams::fail(yaml, "expecing empty yaml");
       return true;
     }
     while (view.size()) {
