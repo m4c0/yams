@@ -157,6 +157,7 @@ namespace yams::ast {
       case '!': ts.fail("TBD: tags");
       case '|': ts.fail("TBD: multi-line text");
       case '>': ts.fail("TBD: multi-line text");
+      case '\'': ts.fail("TBD: single-quoted strings");
       case '"': ts.fail("TBD: double-quoted strings");
       case '{': ts.fail("TBD: json-like maps");
       default:
