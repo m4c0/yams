@@ -227,7 +227,12 @@ namespace yams {
         *ptr = txt[i];
         continue;
       }
-      *ptr = txt[i + 1] == 'n' ? '\n' : txt[i + 1];
+      if (i + 1 == txt.size()) fail(n, "escape without char");
+      switch (auto c = txt[i + 1]) {
+        case 'n': *ptr = '\n'; break;
+        case 't': *ptr = '\t'; break;
+        default: *ptr = c;
+      }
       i++;
     }
     unsigned len = ptr - buffer.begin();
