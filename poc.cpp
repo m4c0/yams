@@ -200,7 +200,7 @@ void compare(const yams::ast::node & yaml, const auto & json) {
   if (j::isa<j::nodes::string>(json)) {
     auto & jd = j::cast<j::nodes::string>(json);
     if (yaml.type != y::type::string) yams::fail("expecting string, got type ", static_cast<int>(yaml.type));
-    if (jd.str() != yaml.content) yams::fail("mismatched string: ", jd.str(), " v ", yaml.content);
+    if (jd.str() != yaml.content) yams::fail("mismatched string - got: [", yaml.content, "] exp: [", jd.str(), "]");
     return;
   }
 
