@@ -117,6 +117,7 @@ namespace yams::ast {
     return v.size();
   }
 
+  static constexpr node do_inline(char_stream & ts, int indent);
   static constexpr node do_string(char_stream & ts);
   static constexpr node do_value(char_stream & ts, int indent);
 
@@ -138,10 +139,10 @@ namespace yams::ast {
       take_spaces(ts);
 
       if (ts.peek() == '\n') {
-        ts.match('\n');
+        while (ts.peek() == '\n') ts.match('\n');
         res.children->push_back(do_value(ts, indent));
       } else {
-        res.children->push_back(do_string(ts));
+        res.children->push_back(do_inline(ts, indent));
       }
       (*res.index)[key] = res.children->size();
     } while (is_alpha(ts));
@@ -168,22 +169,33 @@ namespace yams::ast {
     return res;
   }
 
+  static constexpr node do_inline(char_stream & ts, int indent) {
+    switch (ts.peek()) {
+      case 0:    return do_nil();
+      case '!':  ts.fail("TBD: tags");
+      case '|':  ts.fail("TBD: multi-line text");
+      case '>':  ts.fail("TBD: multi-line text");
+      case '\'': ts.fail("TBD: single-quoted strings");
+      case '"':  ts.fail("TBD: double-quoted strings");
+      case '[':  ts.fail("TBD: json-like seqs");
+      case '{':  ts.fail("TBD: json-like maps");
+      default:
+        if (is_alpha(ts)) return do_string(ts);
+        ts.fail("unexpected char [", ts.peek(), "]");
+    }
+  }
+
   static constexpr node do_value(char_stream & ts, int indent) {
     auto ind = take_spaces(ts);
     if (ind < indent) ts.fail("TBD: next indent is smaller: ", ind, " v ", indent);
 
     switch (ts.peek()) {
-      case 0:   return ast::do_nil();
-      case '-': return ast::do_seq(ts);
-      case '!': ts.fail("TBD: tags");
-      case '|': ts.fail("TBD: multi-line text");
-      case '>': ts.fail("TBD: multi-line text");
-      case '\'': ts.fail("TBD: single-quoted strings");
-      case '"': ts.fail("TBD: double-quoted strings");
-      case '{': ts.fail("TBD: json-like maps");
+      case 0:   return do_nil();
+      case '-': return do_seq(ts);
+      case '!': ts.fail("TBD: flow tags");
       default:
-        if (ast::is_alpha(ts)) return ast::do_map(ts, ind);
-        ts.fail("unexpected char [", ts.peek(), "]");
+        if (is_alpha(ts)) return do_map(ts, indent);
+        return do_inline(ts, ind);
     }
   }
 }
