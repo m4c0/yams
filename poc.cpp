@@ -21,11 +21,18 @@ namespace yams {
     throw failure();
   }
 
+  struct file_info {
+    jute::view filename;
+    unsigned line { 1 };
+    unsigned col { 1 };
+  };
+  [[noreturn]] static constexpr void fail(const file_info & n, jute::view msg, auto... extra) {
+    yams::fail_(n.filename, ":", n.line, ":", n.col, ": ", msg, extra...);
+  }
+
   class char_stream { 
-    jute::view m_filename;
+    file_info m_fileinfo {};
     jute::view m_src;
-    unsigned m_line { 1 };
-    unsigned m_col { 1 };
 
     constexpr jute::view esc_peek() const {
       if (m_src.size() == 0) return "EOF";
@@ -37,9 +44,10 @@ namespace yams {
     }
 
   public:
-    constexpr explicit char_stream(jute::view fn, jute::view src) : m_filename {fn}, m_src {src} {}
+    constexpr explicit char_stream(jute::view fn, jute::view src) : m_fileinfo {fn}, m_src {src} {}
 
     constexpr const char * ptr() const { return m_src.data(); }
+    constexpr const auto & fileinfo() const { return m_fileinfo; }
 
     constexpr char peek() const { return m_src.size() ? m_src[0] : 0; }
     constexpr char take() {
@@ -47,16 +55,16 @@ namespace yams {
       auto [l, r] = m_src.subview(1);
       m_src = r;
       if (l[0] == '\n') {
-        m_line++;
-        m_col = 1;
+        m_fileinfo.line++;
+        m_fileinfo.col = 1;
       } else {
-        m_col++;
+        m_fileinfo.col++;
       }
       return l[0];
     }
 
     [[noreturn]] constexpr void fail(jute::view msg, auto... extra) const {
-      yams::fail_(m_filename, ":", m_line, ":", m_col, ": ", msg, extra...);
+      yams::fail(m_fileinfo, msg, extra...);
     }
     constexpr void match(char c) {
       if (peek() != c) fail("mismatched char - got: [", esc_peek(), "] exp: [", c, "]");
@@ -90,9 +98,7 @@ namespace yams::ast {
     kids children {};
     idx index {};
 
-    jute::view filename {};
-    unsigned line { 1 };
-    unsigned col { 1 };
+    file_info fileinfo {};
   };
 
   static constexpr bool is_alpha(char_stream & ts) {
@@ -121,6 +127,7 @@ namespace yams::ast {
       .type = type::map,
       .children = node::kids::make(),
       .index = node::idx::make(17U),
+      .fileinfo = ts.fileinfo(),
     };
 
     do {
@@ -145,11 +152,11 @@ namespace yams::ast {
   static constexpr node do_string(char_stream & ts) {
     auto str = take_string(ts, is_alpha);
     ts.match('\n');
-    return { .type = type::string, .content = str }; 
+    return { .type = type::string, .content = str, .fileinfo = ts.fileinfo() }; 
   }
 
   static constexpr node do_seq(char_stream & ts) {
-    node res { .type = type::seq, .children = node::kids::make() };
+    node res { .type = type::seq, .children = node::kids::make(), .fileinfo = ts.fileinfo() };
 
     do {
       ts.match('-');
@@ -182,7 +189,7 @@ namespace yams::ast {
 }
 namespace yams {
   [[noreturn]] constexpr void fail(const ast::node & n, jute::view msg, auto... extra) {
-    yams::fail_(n.filename, ":", n.line, ":", n.col, ": ", msg, extra...);
+    yams::fail(n.fileinfo, msg, extra...);
   }
 
   constexpr ast::node parse(jute::view file, jute::view src) {
