@@ -201,9 +201,11 @@ namespace yams::ast {
     if (ind < indent) ts.fail("TBD: next indent is smaller: ", ind, " v ", indent);
 
     switch (ts.peek()) {
-      case 0:   return do_nil();
-      case '-': return do_seq(ts);
-      case '!': ts.fail("TBD: flow tags");
+      case 0:    return do_nil();
+      case '-':  return do_seq(ts);
+      case '!':  ts.fail("TBD: flow tags");
+      case '\'': return do_string(ts, '\'');
+      case '"':  return do_string(ts, '"');
       default:
         if (is_alpha(ts)) return do_map(ts, indent);
         return do_inline(ts, ind);
