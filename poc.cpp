@@ -50,7 +50,7 @@ namespace yams {
       yams::fail(m_filename, ":", m_line, ":", m_col, ": ", msg, extra...);
     }
     constexpr void match(char c) {
-      if (peek() != c) fail("mismatched char: [", peek(), "] v [", c, "]");
+      if (peek() != c) fail("mismatched char - got: [", peek(), "] exp: [", c, "]");
       else take();
     }
   };
@@ -246,7 +246,7 @@ void recurse(jute::view base) {
     if (mtime::of((base_dir + "/===").cstr().begin()) != 0) {
       auto success = run_test(base_dir);
       counts[success ? 0 : 1]++;
-      if (!success) silog::log(silog::error, "test failed: %s", base_dir.cstr().begin());
+      if (!success) putln(base_dir.cstr(), "in.yaml: failed");
     } else {
       recurse(base_dir.cstr());
     }
