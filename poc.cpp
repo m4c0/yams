@@ -215,6 +215,23 @@ namespace yams {
     yams::fail(n.fileinfo, msg, extra...);
   }
 
+  [[nodiscard]] constexpr auto unescape(const ast::node & n) {
+    auto txt = n.content;
+    hai::array<char> buffer { static_cast<unsigned>(txt.size()) };
+    auto ptr = buffer.begin();
+    unsigned i;
+    for (i = 0; i < txt.size(); i++, ptr++) {
+      if (txt[i] != '\\') {
+        *ptr = txt[i];
+        continue;
+      }
+      *ptr = txt[i + 1] == 'n' ? '\n' : txt[i + 1];
+      i++;
+    }
+    unsigned len = ptr - buffer.begin();
+    return jute::heap { jute::view { buffer.begin(), len } };
+  }
+
   constexpr ast::node parse(jute::view file, jute::view src) {
     char_stream ts { file, src };
     return ast::do_value(ts, 0);
@@ -249,7 +266,8 @@ void compare(const yams::ast::node & yaml, const auto & json) {
   if (j::isa<j::nodes::string>(json)) {
     auto & jd = j::cast<j::nodes::string>(json);
     if (yaml.type != y::type::string) yams::fail(yaml, "expecting string, got ", type_name(yaml.type));
-    if (jd.str() != yaml.content) yams::fail(yaml, "mismatched string - got: [", yaml.content, "] exp: [", jd.str(), "]");
+    auto ys = yams::unescape(yaml);
+    if (jd.str() != ys) yams::fail(yaml, "mismatched string - got: [", ys, "] exp: [", jd.str(), "]");
     return;
   }
 
