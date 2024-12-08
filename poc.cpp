@@ -155,6 +155,17 @@ namespace yams::ast {
     ts.match('\n');
     return { .type = type::string, .content = str, .fileinfo = ts.fileinfo() }; 
   }
+  static constexpr node do_string(char_stream & ts, char delim) {
+    ts.match(delim);
+    auto str = take_string(ts, [=](auto & ts) {
+      if (ts.peek() == delim) return false;
+      if (ts.peek() == '\\') ts.take();
+      return true;
+    });
+    ts.match(delim);
+    ts.match('\n');
+    return { .type = type::string, .content = str, .fileinfo = ts.fileinfo() }; 
+  }
 
   static constexpr node do_seq(char_stream & ts) {
     node res { .type = type::seq, .children = node::kids::make(), .fileinfo = ts.fileinfo() };
@@ -175,8 +186,8 @@ namespace yams::ast {
       case '!':  ts.fail("TBD: tags");
       case '|':  ts.fail("TBD: multi-line text");
       case '>':  ts.fail("TBD: multi-line text");
-      case '\'': ts.fail("TBD: single-quoted strings");
-      case '"':  ts.fail("TBD: double-quoted strings");
+      case '\'': return do_string(ts, '\'');
+      case '"':  return do_string(ts, '"');
       case '[':  ts.fail("TBD: json-like seqs");
       case '{':  ts.fail("TBD: json-like maps");
       default:
