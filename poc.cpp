@@ -27,12 +27,21 @@ namespace yams {
     unsigned m_line { 1 };
     unsigned m_col { 1 };
 
+    constexpr jute::view esc_peek() const {
+      if (m_src.size() == 0) return "EOF";
+      switch (peek()) {
+        case '\t': return "\\t";
+        case '\n': return "\\n";
+        default: return m_src.subview(1).before;
+      }
+    }
+
   public:
     constexpr explicit char_stream(jute::view fn, jute::view src) : m_filename {fn}, m_src {src} {}
 
-    constexpr const char * ptr() { return m_src.data(); }
+    constexpr const char * ptr() const { return m_src.data(); }
 
-    constexpr char peek() { return m_src.size() ? m_src[0] : 0; }
+    constexpr char peek() const { return m_src.size() ? m_src[0] : 0; }
     constexpr char take() {
       if (m_src.size() == 0) return 0;
       auto [l, r] = m_src.subview(1);
@@ -46,11 +55,11 @@ namespace yams {
       return l[0];
     }
 
-    [[noreturn]] constexpr void fail(jute::view msg, auto... extra) {
+    [[noreturn]] constexpr void fail(jute::view msg, auto... extra) const {
       yams::fail(m_filename, ":", m_line, ":", m_col, ": ", msg, extra...);
     }
     constexpr void match(char c) {
-      if (peek() != c) fail("mismatched char - got: [", peek(), "] exp: [", c, "]");
+      if (peek() != c) fail("mismatched char - got: [", esc_peek(), "] exp: [", c, "]");
       else take();
     }
   };
