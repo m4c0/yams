@@ -149,6 +149,7 @@ namespace yams::ast {
       } else {
         res.children->push_back(do_inline(ts, indent));
       }
+      while (ts.peek() == '\n') ts.match('\n');
       (*res.index)[key] = res.children->size();
     } while (is_alpha(ts));
 
