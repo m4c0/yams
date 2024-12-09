@@ -163,6 +163,11 @@ namespace yams::ast {
   static constexpr node do_string(char_stream & ts, char delim) {
     ts.match(delim);
     auto str = take_string(ts, [=](auto & ts) {
+      if (delim == '\'' && ts.lookahead(2) == "''") {
+        ts.take();
+        return true;
+      }
+
       if (ts.peek() == delim) return false;
       if (ts.peek() == '\\') ts.take();
       return true;
