@@ -306,15 +306,12 @@ bool run_test(auto dir) try {
     return false;
   }
 
-  auto err_file = (dir + "error").cstr();
-  if (mtime::of(err_file.begin())) {
-    // TODO: deal with negative tests
-    return false;
-  }
-
   // TODO: how to test these? (example: M5DY)
   return false;
 } catch (yams::failure) {
+  auto err_file = (dir + "error").cstr();
+  if (mtime::of(err_file.begin())) return true;
+
   return false;
 } catch (...) {
   silog::whilst("running test [%s]", dir.cstr().begin());
