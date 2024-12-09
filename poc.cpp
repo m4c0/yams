@@ -49,7 +49,7 @@ namespace yams {
     constexpr const char * ptr() const { return m_src.data(); }
     constexpr const auto & fileinfo() const { return m_fileinfo; }
 
-    constexpr char peek() const { return m_src.size() ? m_src[0] : 0; }
+    [[nodiscard]] constexpr char peek() const { return m_src.size() ? m_src[0] : 0; }
     constexpr char take() {
       if (m_src.size() == 0) return 0;
       auto [l, r] = m_src.subview(1);
@@ -61,6 +61,11 @@ namespace yams {
         m_fileinfo.col++;
       }
       return l[0];
+    }
+
+    [[nodiscard]] constexpr auto lookahead(int n) const {
+      if (m_src.size() < n) n = m_src.size();
+      return m_src.subview(n).before;
     }
 
     [[noreturn]] constexpr void fail(jute::view msg, auto... extra) const {
@@ -196,13 +201,18 @@ namespace yams::ast {
     }
   }
 
+  static constexpr node do_seq_or_doc(char_stream & ts) {
+    if (ts.lookahead(3) == "---") ts.fail("TBD: multiple docs");
+    else return do_seq(ts);
+  }
+
   static constexpr node do_value(char_stream & ts, int indent) {
     auto ind = take_spaces(ts);
     if (ind < indent) ts.fail("TBD: next indent is smaller: ", ind, " v ", indent);
 
     switch (ts.peek()) {
       case 0:    return do_nil();
-      case '-':  return do_seq(ts);
+      case '-':  return do_seq_or_doc(ts);
       case '!':  ts.fail("TBD: flow tags");
       case '\'': return do_string(ts, '\'');
       case '"':  return do_string(ts, '"');
@@ -326,7 +336,7 @@ void recurse(jute::view base) {
     if (mtime::of((base_dir + "/===").cstr().begin()) != 0) {
       auto success = run_test(base_dir);
       counts[success ? 0 : 1]++;
-      if (!success) putln(base_dir.cstr(), "in.yaml: failed");
+      if (!success) putln(base_dir.cstr(), "in.yaml:1:1: test failed");
     } else {
       recurse(base_dir.cstr());
     }
