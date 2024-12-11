@@ -170,6 +170,7 @@ namespace yams::ast {
       }
 
       if (ts.peek() == delim) return false;
+      // TODO: validate unicode and hex escapes (see test G4RS)
       if (ts.peek() == '\\') ts.take();
       return true;
     });
@@ -195,12 +196,14 @@ namespace yams::ast {
     switch (ts.peek()) {
       case 0:    return do_nil();
       case '!':  ts.fail("TBD: tags");
+      case '&':  ts.fail("TBD: value-anchors");
       case '|':  ts.fail("TBD: multi-line text");
       case '>':  ts.fail("TBD: multi-line text");
       case '\'': return do_string(ts, '\'');
       case '"':  return do_string(ts, '"');
       case '[':  ts.fail("TBD: json-like seqs");
       case '{':  ts.fail("TBD: json-like maps");
+      case '#':  ts.fail("TBD: comment");
       default:
         if (is_alpha(ts)) return do_string(ts);
         ts.fail("unexpected char [", ts.peek(), "]");
@@ -220,6 +223,8 @@ namespace yams::ast {
       case 0:    return do_nil();
       case '-':  return do_seq_or_doc(ts);
       case '!':  ts.fail("TBD: flow tags");
+      case '&':  ts.fail("TBD: prop-anchor");
+      case '#':  ts.fail("TBD: comment");
       case '\'': return do_string(ts, '\'');
       case '"':  return do_string(ts, '"');
       default:
