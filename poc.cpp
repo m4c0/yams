@@ -115,7 +115,7 @@ namespace yams::ast {
     auto len = static_cast<unsigned>(ts.ptr() - start);
     return jute::view { start, len };
   }
-  static constexpr int take_spaces(char_stream & ts) {
+  static constexpr int take_spaces(char_stream & ts, int indent) {
     auto v = take_string(ts, [](auto & ts) { 
       return ts.peek() == ' ' || ts.peek() == '\t';
     });
@@ -141,7 +141,7 @@ namespace yams::ast {
         return is_alpha(ts) && ts.peek() != ':';
       });
       ts.match(':');
-      take_spaces(ts);
+      take_spaces(ts, indent);
 
       if (ts.peek() == '\n') {
         while (ts.peek() == '\n') ts.match('\n');
@@ -179,12 +179,12 @@ namespace yams::ast {
     return { .type = type::string, .content = str, .fileinfo = ts.fileinfo() }; 
   }
 
-  static constexpr node do_seq(char_stream & ts) {
+  static constexpr node do_seq(char_stream & ts, int indent) {
     node res { .type = type::seq, .children = node::kids::make(), .fileinfo = ts.fileinfo() };
 
     do {
       ts.match('-');
-      take_spaces(ts);
+      take_spaces(ts, indent);
 
       res.children->push_back(do_string(ts));
     } while (ts.peek() == '-');
@@ -210,18 +210,18 @@ namespace yams::ast {
     }
   }
 
-  static constexpr node do_seq_or_doc(char_stream & ts) {
+  static constexpr node do_seq_or_doc(char_stream & ts, int indent) {
     if (ts.lookahead(3) == "---") ts.fail("TBD: multiple docs");
-    else return do_seq(ts);
+    else return do_seq(ts, indent);
   }
 
   static constexpr node do_value(char_stream & ts, int indent) {
-    auto ind = take_spaces(ts);
+    auto ind = take_spaces(ts, indent);
     if (ind < indent) ts.fail("TBD: next indent is smaller: ", ind, " v ", indent);
 
     switch (ts.peek()) {
       case 0:    return do_nil();
-      case '-':  return do_seq_or_doc(ts);
+      case '-':  return do_seq_or_doc(ts, indent);
       case '!':  ts.fail("TBD: flow tags");
       case '&':  ts.fail("TBD: prop-anchor");
       case '#':  ts.fail("TBD: comment");
