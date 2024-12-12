@@ -138,7 +138,6 @@ namespace yams::ast {
   }
 
   static constexpr node do_inline(char_stream & ts, int indent);
-  static constexpr node do_string(char_stream & ts);
   static constexpr node do_value(char_stream & ts, int indent);
 
   static constexpr node do_nil() { return { type::nil }; }
@@ -176,22 +175,42 @@ namespace yams::ast {
     ts.match('\n');
     return { .type = type::string, .content = str, .fileinfo = ts.fileinfo() }; 
   }
-  static constexpr node do_string(char_stream & ts, char delim) {
-    ts.match(delim);
-    auto str = take_string(ts, [=](auto & ts) {
-      if (delim == '\'' && ts.lookahead(2) == "''") {
-        ts.take();
-        return true;
-      }
-
-      if (ts.peek() == delim) return false;
+  static constexpr node do_dq_string(char_stream & ts) {
+    auto ptr = ts.ptr();
+    auto fi = ts.fileinfo();
+    ts.match('"');
+    while (ts.peek()) {
       // TODO: validate unicode and hex escapes (see test G4RS)
-      if (ts.peek() == '\\') ts.take();
-      return true;
-    });
-    ts.match(delim);
+      if (ts.peek() == '\\') {
+        ts.take();
+        ts.take();
+        continue;
+      }
+      if (ts.peek() == '"') break;
+      ts.take();
+    }
+    ts.match('\"');
+    jute::view str { ptr, static_cast<unsigned>(ts.ptr() - ptr) };
     ts.match('\n');
-    return { .type = type::string, .content = str, .fileinfo = ts.fileinfo() }; 
+    return { .type = type::string, .content = str, .fileinfo = fi };
+  }
+  static constexpr node do_sq_string(char_stream & ts) {
+    auto ptr = ts.ptr();
+    auto fi = ts.fileinfo();
+    ts.match('\'');
+    while (ts.peek()) {
+      if (ts.lookahead(2) == "''") {
+        ts.take();
+        ts.take();
+        continue;
+      }
+      if (ts.peek() == '\'') break;
+      ts.take();
+    }
+    ts.match('\'');
+    jute::view str { ptr, static_cast<unsigned>(ts.ptr() - ptr) };
+    ts.match('\n');
+    return { .type = type::string, .content = str, .fileinfo = fi };
   }
 
   static constexpr node do_seq(char_stream & ts, int indent) {
@@ -214,8 +233,8 @@ namespace yams::ast {
       case '&':  ts.fail("TBD: value-anchors");
       case '|':  ts.fail("TBD: multi-line text");
       case '>':  ts.fail("TBD: multi-line text");
-      case '\'': return do_string(ts, '\'');
-      case '"':  return do_string(ts, '"');
+      case '\'': return do_sq_string(ts);
+      case '"':  return do_dq_string(ts);
       case '[':  ts.fail("TBD: json-like seqs");
       case '{':  ts.fail("TBD: json-like maps");
       default:
@@ -238,8 +257,8 @@ namespace yams::ast {
       case '-':  return do_seq_or_doc(ts, indent);
       case '!':  ts.fail("TBD: flow tags");
       case '&':  ts.fail("TBD: prop-anchor");
-      case '\'': return do_string(ts, '\'');
-      case '"':  return do_string(ts, '"');
+      case '\'': return do_sq_string(ts);
+      case '"':  return do_dq_string(ts);
       default:
         if (is_alpha(ts)) return do_map(ts, indent);
         return do_inline(ts, ind);
@@ -256,18 +275,30 @@ namespace yams {
     hai::array<char> buffer { static_cast<unsigned>(txt.size()) };
     auto ptr = buffer.begin();
     unsigned i;
-    for (i = 0; i < txt.size(); i++, ptr++) {
-      if (txt[i] != '\\') {
-        *ptr = txt[i];
-        continue;
+    if (txt[0] == '"') {
+      for (i = 1; i < txt.size() - 1; i++, ptr++) {
+        if (txt[i] != '\\') {
+          *ptr = txt[i];
+          continue;
+        }
+        if (i + 1 == txt.size()) fail(n, "escape without char");
+        switch (auto c = txt[i + 1]) {
+          case 'n': *ptr = '\n'; break;
+          case 't': *ptr = '\t'; break;
+          default: *ptr = c;
+        }
+        i++;
       }
-      if (i + 1 == txt.size()) fail(n, "escape without char");
-      switch (auto c = txt[i + 1]) {
-        case 'n': *ptr = '\n'; break;
-        case 't': *ptr = '\t'; break;
-        default: *ptr = c;
+    } else if (txt[0] == '\'') {
+      for (i = 1; i < txt.size() - 1; i++, ptr++) {
+        if (txt[i] != '\'') {
+          *ptr = txt[i];
+          continue;
+        }
+        i++;
       }
-      i++;
+    } else {
+      return jute::heap(txt);
     }
     unsigned len = ptr - buffer.begin();
     return jute::heap { jute::view { buffer.begin(), len } };
