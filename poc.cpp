@@ -116,10 +116,25 @@ namespace yams::ast {
     return jute::view { start, len };
   }
   static constexpr int take_spaces(char_stream & ts, int indent) {
-    auto v = take_string(ts, [](auto & ts) { 
-      return ts.peek() == ' ' || ts.peek() == '\t';
-    });
-    return v.size();
+    bool done = false;
+    int count = 0;
+    while (!done) {
+      switch (ts.peek()) {
+        case ' ':
+        case '\t':
+          count++;
+          ts.take();
+          break;
+        case '#':
+          while (ts.peek() && ts.peek() != '\n') ts.take();
+          ts.take(); // Consumes CR
+          for (count = 0; count < indent; count++)
+            if (ts.peek() != ' ' && ts.peek() != '\t') break;
+          break;
+        default: done = true; break;
+      }
+    }
+    return count;
   }
 
   static constexpr node do_inline(char_stream & ts, int indent);
@@ -203,7 +218,6 @@ namespace yams::ast {
       case '"':  return do_string(ts, '"');
       case '[':  ts.fail("TBD: json-like seqs");
       case '{':  ts.fail("TBD: json-like maps");
-      case '#':  ts.fail("TBD: comment");
       default:
         if (is_alpha(ts)) return do_string(ts);
         ts.fail("unexpected char [", ts.peek(), "]");
@@ -224,7 +238,6 @@ namespace yams::ast {
       case '-':  return do_seq_or_doc(ts, indent);
       case '!':  ts.fail("TBD: flow tags");
       case '&':  ts.fail("TBD: prop-anchor");
-      case '#':  ts.fail("TBD: comment");
       case '\'': return do_string(ts, '\'');
       case '"':  return do_string(ts, '"');
       default:
