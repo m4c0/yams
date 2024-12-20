@@ -300,26 +300,43 @@ namespace yams {
   }
 
   export class nil {
+    const ast::node & m_n;
   public:
     static constexpr const auto type = ast::type::nil;
+
+    explicit constexpr nil(const ast::node & n) : m_n { n } {}
+    [[nodiscard]] constexpr const auto & node() const { return m_n; }
   };
   export class map {
+    const ast::node & m_n;
   public:
     static constexpr const auto type = ast::type::map;
+
+    explicit constexpr map(const ast::node & n) : m_n { n } {}
+    [[nodiscard]] constexpr const auto & node() const { return m_n; }
   };
   export class seq {
+    const ast::node & m_n;
   public:
     static constexpr const auto type = ast::type::seq;
+
+    explicit constexpr seq(const ast::node & n) : m_n { n } {}
+    [[nodiscard]] constexpr const auto & node() const { return m_n; }
   };
   export class string {
+    const ast::node & m_n;
   public:
     static constexpr const auto type = ast::type::string;
+
+    explicit constexpr string(const ast::node & n) : m_n { n } {}
+    [[nodiscard]] constexpr const auto & node() const { return m_n; }
   };
+
   export template<typename T> constexpr bool isa(const ast::node & n) {
     return n.type == T::type;
   }
   export template<typename T> constexpr T cast(const ast::node & n) {
-    if (yams::isa<T>(n)) return T {};
+    if (yams::isa<T>(n)) return T { n };
     yams::fail(n, "expecting ", type_name(T::type), ", got type ", type_name(n.type));
   }
 }
