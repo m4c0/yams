@@ -1,9 +1,4 @@
 #pragma leco tool
-/// Third time is the charm. Trying to use yaml-test-suite instead of specs.
-///
-/// Hypothesis: tests should contain and describe YAML by use-cases, which can
-/// help prioritise feature support and lead to a parser MVP
-
 import jason;
 import jojo;
 import jute;
