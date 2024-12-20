@@ -314,6 +314,13 @@ namespace yams {
 
     explicit constexpr map(const ast::node & n) : m_n { n } {}
     [[nodiscard]] constexpr const auto & node() const { return m_n; }
+
+    [[nodiscard]] constexpr auto size() const { return m_n.children->size(); }
+    [[nodiscard]] constexpr bool has(jute::view key) const { return m_n.index->has(key); }
+    [[nodiscard]] constexpr const auto & operator[](jute::view key) const {
+      if (!has(key)) yams::fail(m_n, "missing key in map: ", key);
+      return m_n.children->seek((*m_n.index)[key] - 1);
+    }
   };
   export class seq {
     const ast::node & m_n;
@@ -322,6 +329,9 @@ namespace yams {
 
     explicit constexpr seq(const ast::node & n) : m_n { n } {}
     [[nodiscard]] constexpr const auto & node() const { return m_n; }
+
+    [[nodiscard]] constexpr auto size() const { return m_n.children->size(); }
+    [[nodiscard]] constexpr const auto & operator[](unsigned i) const { return m_n.children->seek(i); }
   };
   export class string {
     const ast::node & m_n;
@@ -330,6 +340,7 @@ namespace yams {
 
     explicit constexpr string(const ast::node & n) : m_n { n } {}
     [[nodiscard]] constexpr const auto & node() const { return m_n; }
+    [[nodiscard]] constexpr auto str() const { return yams::unescape(m_n); }
   };
 
   export template<typename T> constexpr bool isa(const ast::node & n) {
