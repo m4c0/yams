@@ -68,23 +68,15 @@ namespace yams {
   };
 }
 namespace yams::ast {
-  export enum class type {
+  enum class type {
     nil,
     map,
     seq,
     string,
   };
 
-  export constexpr jute::view type_name(type t) {
-    switch (t) {
-      case type::nil:    return "nil";
-      case type::map:    return "map";
-      case type::seq:    return "seq";
-      case type::string: return "string";
-    }
-  }
-
-  export struct node {
+  export struct node;
+  struct node {
     using kids = hai::sptr<hai::chain<node>>;
     using idx = hai::sptr<hashley::niamh>;
 
@@ -299,6 +291,16 @@ namespace yams {
     return ast::do_value(ts, 0);
   }
 
+  export constexpr jute::view type_name(ast::type t) {
+    switch (t) {
+      case ast::type::nil:    return "nil";
+      case ast::type::map:    return "map";
+      case ast::type::seq:    return "seq";
+      case ast::type::string: return "string";
+    }
+  }
+  export constexpr jute::view type_name(const ast::node & n) { return type_name(n.type); }
+
   export class nil {
     const ast::node & m_n;
   public:
@@ -348,6 +350,6 @@ namespace yams {
   }
   export template<typename T> constexpr T cast(const ast::node & n) {
     if (yams::isa<T>(n)) return T { n };
-    yams::fail(n, "expecting ", type_name(T::type), ", got type ", type_name(n.type));
+    yams::fail(n, "expecting ", type_name(T::type), ", got type ", type_name(n));
   }
 }

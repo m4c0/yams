@@ -40,7 +40,7 @@ void compare(const yams::ast::node & yaml, const auto & json) {
     return;
   }
 
-  yams::fail(yaml, "unknown yaml type: ", type_name(yaml.type));
+  yams::fail(yaml, "unknown yaml type: ", yams::type_name(yaml));
 }
 bool run_test(auto dir) try {
   auto in_yaml = (dir + "in.yaml").cstr();
@@ -54,7 +54,7 @@ bool run_test(auto dir) try {
     auto json_src = jojo::read_cstr(in_json);
     auto view = jute::view { json_src };
     if (view.size() == 0) {
-      if (yaml.type != yams::ast::type::nil) yams::fail(yaml, "expecing empty yaml");
+      yams::cast<yams::nil>(yaml);
       return true;
     }
     while (view.size()) {
