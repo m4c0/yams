@@ -298,4 +298,28 @@ namespace yams {
     char_stream ts { file, src };
     return ast::do_value(ts, 0);
   }
+
+  export class nil {
+  public:
+    static constexpr const auto type = ast::type::nil;
+  };
+  export class map {
+  public:
+    static constexpr const auto type = ast::type::map;
+  };
+  export class seq {
+  public:
+    static constexpr const auto type = ast::type::seq;
+  };
+  export class string {
+  public:
+    static constexpr const auto type = ast::type::string;
+  };
+  export template<typename T> constexpr bool isa(const ast::node & n) {
+    return n.type == T::type;
+  }
+  export template<typename T> constexpr T cast(const ast::node & n) {
+    if (yams::isa<T>(n)) return T {};
+    yams::fail(n, "expecting ", type_name(T::type), ", got type ", type_name(n.type));
+  }
 }

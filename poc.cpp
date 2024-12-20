@@ -19,7 +19,7 @@ void compare(const yams::ast::node & yaml, const auto & json) {
 
   if (j::isa<j::nodes::array>(json)) {
     auto & jd = j::cast<j::nodes::array>(json);
-    if (yaml.type != y::type::seq) yams::fail(yaml, "expecting sequence, got type ", type_name(yaml.type));
+    auto yd = yams::cast<yams::seq>(yaml);
     if (jd.size() != yaml.children->size()) yams::fail(yaml, "mismatched size: ", jd.size(), " v ", yaml.children->size());
     for (auto i = 0; i < jd.size(); i++) {
       compare(yaml.children->seek(i), jd[i]);
@@ -29,7 +29,7 @@ void compare(const yams::ast::node & yaml, const auto & json) {
 
   if (j::isa<j::nodes::dict>(json)) {
     auto & jd = j::cast<j::nodes::dict>(json);
-    if (yaml.type != y::type::map) yams::fail(yaml, "expecting map, got type ", type_name(yaml.type));
+    auto yd = yams::cast<yams::map>(yaml);
     if (jd.size() != yaml.children->size()) yams::fail(yaml, "mismatched size: ", jd.size(), " v ", yaml.children->size());
     for (auto &[k, v] : jd) {
       if (!yaml.index->has(*k)) yams::fail(yaml, "missing key in map: ", k);
@@ -40,6 +40,7 @@ void compare(const yams::ast::node & yaml, const auto & json) {
 
   if (j::isa<j::nodes::string>(json)) {
     auto & jd = j::cast<j::nodes::string>(json);
+    auto yd = yams::cast<yams::string>(yaml);
     if (yaml.type != y::type::string) yams::fail(yaml, "expecting string, got ", type_name(yaml.type));
     auto ys = yams::unescape(yaml);
     if (jd.str() != ys) yams::fail(yaml, "mismatched string - got: [", ys, "] exp: [", jd.str(), "]");
